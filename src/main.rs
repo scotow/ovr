@@ -1,4 +1,5 @@
 use std::ops::AddAssign;
+
 use itertools::Itertools;
 use lopdf::Document;
 use pdf_extract::HTMLOutput;
@@ -12,12 +13,15 @@ fn main() {
     let mut parser = HTMLOutput::new(&mut out_buffer);
     pdf_extract::output_doc(&document, &mut parser).unwrap();
 
-    let html = String::from_utf8(out_buffer).unwrap().replace("&nbsp;", " ");
+    let html = String::from_utf8(out_buffer)
+        .unwrap()
+        .replace("&nbsp;", " ");
     let div_regex = Regex::new(r#"<div style='(.+?)'>(.+?)</div>"#).unwrap();
     let top_regex = Regex::new(r#"top:\s?(\d+)(?:\.\d+)?px"#).unwrap();
     let left_regex = Regex::new(r#"left:\s?(\d+)(?:\.\d+)?px"#).unwrap();
 
-    let mut groups = div_regex.captures_iter(&html)
+    let mut groups = div_regex
+        .captures_iter(&html)
         .filter_map(|capture| {
             let style = &capture[1];
             if style.contains("color: red") {
@@ -50,10 +54,8 @@ fn main() {
                     last.trim();
                     words.push(TextGroup::from(g));
                 }
-            },
-            None => {
-                words.push(TextGroup::from(g))
             }
+            None => words.push(TextGroup::from(g)),
         }
     }
     if let Some(last) = words.last_mut() {
@@ -71,11 +73,10 @@ fn main() {
 
     let mut days = Vec::<Vec<TextGroup>>::with_capacity(5);
     for word in words {
-        match days.iter_mut()
-            .find(|ow| {
-                ow.iter()
-                    .any(|ow| ow.center().abs_diff(word.center()) < 30)
-            }) {
+        match days
+            .iter_mut()
+            .find(|ow| ow.iter().any(|ow| ow.center().abs_diff(word.center()) < 30))
+        {
             Some(day) => day.push(word),
             None => days.push(vec![word]),
         }
