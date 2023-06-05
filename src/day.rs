@@ -1,7 +1,14 @@
 use itertools::Itertools;
-use time::{Date, Month, OffsetDateTime, Weekday};
+use serde::{Serialize, Serializer};
+use serde::ser::SerializeStruct;
+use time::{
+    format_description, Date, Month, OffsetDateTime,
+    Weekday,
+};
 
-#[derive(Debug)]
+use crate::response::TextRepresentable;
+
+#[derive(Clone, Debug)]
 pub struct Day {
     date: Date,
     dishes: Vec<String>,
@@ -28,12 +35,10 @@ impl Day {
             .min_by_key(|date| (*date - now.date()).abs())
             .unwrap();
 
-        Ok(Some(
-            Self {
-                date,
-                dishes: fields[1..].to_vec(),
-            }
-        ))
+        Ok(Some(Self {
+            date,
+            dishes: fields[1..].to_vec(),
+        }))
     }
 
     pub fn date(&self) -> Date {
@@ -46,6 +51,39 @@ impl Day {
 
     pub fn dishes(self) -> Vec<String> {
         self.dishes
+    }
+}
+
+impl Serialize for Day {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut state = serializer.serialize_struct("Day", 3)?;
+        state.serialize_field("date", &self
+            .date
+            .format(&format_description::parse("[year]-[month]-[day]").unwrap())
+            .unwrap())?;
+        state.serialize_field("dishes", &self.dishes)?;
+        state.end()
+    }
+}
+
+impl TextRepresentable for Day {
+    fn as_text(&self, human: bool) -> String {
+        if human {
+            if self.dishes.len() >= 2 {
+                format!(
+                    "Au menu : {} et {}.",
+                    self.dishes.iter().dropping_back(1).join(", "),
+                    self.dishes.last().unwrap(),
+                )
+            } else {
+                format!("Au menu : {}.", self.dishes.iter().join(", "),)
+            }
+        } else {
+            self.dishes.iter().map(|d| format!("- {d}")).join("\n")
+        }
     }
 }
 

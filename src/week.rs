@@ -1,8 +1,10 @@
 use std::ops::AddAssign;
+
 use itertools::Itertools;
 use lopdf::Document;
 use pdf_extract::HTMLOutput;
 use regex::Regex;
+
 use crate::day::Day;
 
 const MIN_WORDS_PER_LINE: usize = 3;
@@ -71,10 +73,7 @@ pub fn parse_pdf(pdf_data: &[u8]) -> Result<Vec<Day>, ()> {
         .collect::<Vec<_>>();
     words.retain(|w| !lines_to_clear.contains(&w.top));
 
-    let mut dishes_counts = words
-        .iter()
-        .map(|w| w.text.to_lowercase())
-        .counts();
+    let mut dishes_counts = words.iter().map(|w| w.text.to_lowercase()).counts();
 
     let mut columns = Vec::<Vec<TextGroup>>::with_capacity(5);
     for word in words {

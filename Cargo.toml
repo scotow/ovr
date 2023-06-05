@@ -4,9 +4,14 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-axum = "0.6.18"
+axum = { version = "0.6.18", features = ["macros"] }
 itertools = "0.10.5"
+http-negotiator = { git = "https://github.com/scotow/http-negotiator", rev = "d2232d2", features = ["axum"] }
 lopdf = "0.29.0"
 pdf-extract = "0.6.5"
 regex = "1.8.3"
-time = "0.3.21"
+thiserror = "1.0.40"
+time = { version = "0.3.21", features = ["formatting", "local-offset"] }
+tokio = { version = "1.28.2", features = ["sync", "rt-multi-thread", "macros"] }
+serde = { version = "1.0.163", features = ["derive"] }
+serde_json = "1.0.96"
