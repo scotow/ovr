@@ -271,7 +271,7 @@ dependencies = [
  "linked-hash-map",
  "log",
  "pom 3.2.0",
- "time",
+ "time 0.2.27",
  "weezl",
 ]
 
@@ -323,6 +323,7 @@ dependencies = [
  "lopdf",
  "pdf-extract",
  "regex",
+ "time 0.3.21",
 ]
 
 [[package]]
@@ -567,6 +568,22 @@ dependencies = [
  "version_check",
  "winapi",
 ]
+
+[[package]]
+name = "time"
+version = "0.3.21"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8f3403384eaacbca9923fa06940178ac13e4edb725486d70e8e15881d0c836cc"
+dependencies = [
+ "serde",
+ "time-core",
+]
+
+[[package]]
+name = "time-core"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7300fbefb4dadc1af235a9cef3737cea692a9d97e1b9cbcd4ebdae6f8868e6fb"
 
 [[package]]
 name = "time-macros"
