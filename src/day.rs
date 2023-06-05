@@ -35,6 +35,18 @@ impl Day {
             }
         ))
     }
+
+    pub fn date(&self) -> Date {
+        self.date
+    }
+
+    pub fn replace_dishes(&mut self, dishes: Vec<String>) {
+        self.dishes = dishes;
+    }
+
+    pub fn dishes(self) -> Vec<String> {
+        self.dishes
+    }
 }
 
 fn parse_fr_weekday_str(weekday: &str) -> Option<Weekday> {
