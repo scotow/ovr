@@ -40,7 +40,7 @@ async fn main() {
         .http1_title_case_headers(true)
         .serve(
             Router::new()
-                .route("/", post(upload_handler))
+                .route("/", get(catalogue_handler).post(upload_handler))
                 .route("/upload", post(upload_handler))
                 .route("/today", get(today_handler))
                 .route("/next", get(next_handler))
@@ -62,6 +62,17 @@ async fn main() {
         )
         .await
         .unwrap_err();
+}
+
+async fn catalogue_handler(
+    State(catalogue): State<Arc<RwLock<Catalogue>>>,
+    Negotiation(_, response_type): Negotiation<ContentTypeNegotiation, ResponseType>,
+) -> impl IntoResponse {
+    ApiResponse {
+        response_type,
+        human: false,
+        data: Ok(catalogue.read().await.clone()),
+    }
 }
 
 async fn upload_handler(

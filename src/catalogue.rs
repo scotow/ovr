@@ -6,7 +6,7 @@ use time::{Date, Duration, OffsetDateTime};
 
 use crate::{day::Day, response::TextRepresentable, utils::format_date};
 
-#[derive(Debug)]
+#[derive(Serialize, Clone, Debug)]
 pub struct Catalogue {
     days: Vec<Day>,
 }
@@ -48,6 +48,14 @@ impl Catalogue {
             .iter()
             .find(|day| day.date() >= now.date())
             .cloned()
+    }
+}
+
+impl TextRepresentable for Catalogue {
+    fn as_text(&self, _human: bool) -> String {
+        self.days.iter()
+            .map(|day| format_date(day.date()))
+            .join("\n")
     }
 }
 
