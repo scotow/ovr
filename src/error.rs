@@ -4,6 +4,10 @@ use thiserror::Error as ThisError;
 
 #[derive(ThisError, Debug)]
 pub enum Error {
+    #[error("invalid body")]
+    InvalidBody,
+    #[error("invalid pdf")]
+    InvalidPdf,
     #[error("no meal found for today")]
     NoMealToday,
     #[error("no next meal found")]
@@ -13,6 +17,8 @@ pub enum Error {
 impl Error {
     pub fn status_code(&self) -> StatusCode {
         match self {
+            Error::InvalidBody => StatusCode::BAD_REQUEST,
+            Error::InvalidPdf => StatusCode::BAD_REQUEST,
             Error::NoMealToday => StatusCode::NOT_FOUND,
             Error::NoNextMeal => StatusCode::NOT_FOUND,
         }

@@ -8,16 +8,20 @@ use serde::{Deserialize, Serialize};
 
 use crate::error::Error;
 
-pub struct ApiResponse<T>(pub ResponseType, pub QueryFormat, pub Result<T, Error>);
+pub struct ApiResponse<T> {
+    pub response_type: ResponseType,
+    pub human: bool,
+    pub data: Result<T, Error>,
+}
 
 impl<T: Serialize + TextRepresentable> IntoResponse for ApiResponse<T> {
     fn into_response(self) -> Response {
         (
-            match &self.2 {
+            match &self.data {
                 Ok(_) => StatusCode::OK,
                 Err(err) => err.status_code(),
             },
-            match self.0 {
+            match self.response_type {
                 ResponseType::Json => {
                     #[derive(Serialize)]
                     struct JsonResponse<T> {
@@ -26,16 +30,17 @@ impl<T: Serialize + TextRepresentable> IntoResponse for ApiResponse<T> {
                         data: T,
                     }
                     Json(JsonResponse {
-                        success: self.2.is_ok(),
-                        data: match self.2 {
+                        success: self.data.is_ok(),
+                        data: match self.data {
                             Ok(data) => serde_json::to_value(data),
                             Err(err) => serde_json::to_value(err),
-                        }.expect("serialization failed"),
+                        }
+                        .expect("serialization failed"),
                     })
                     .into_response()
                 }
-                ResponseType::Text => match self.2 {
-                    Ok(data) => data.as_text(self.1.human),
+                ResponseType::Text => match self.data {
+                    Ok(data) => data.as_text(self.human),
                     Err(err) => err.to_string(),
                 }
                 .into_response(),
@@ -63,9 +68,11 @@ impl AsNegotiationStr for ResponseType {
 #[derive(Deserialize, Debug)]
 pub struct QueryFormat {
     #[serde(default)]
-    human: bool,
+    pub human: bool,
 }
 
 pub trait TextRepresentable {
-    fn as_text(&self, human: bool) -> String;
+    fn as_text(&self, _human: bool) -> String {
+        String::new()
+    }
 }

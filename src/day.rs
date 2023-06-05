@@ -1,12 +1,8 @@
 use itertools::Itertools;
-use serde::{Serialize, Serializer};
-use serde::ser::SerializeStruct;
-use time::{
-    format_description, Date, Month, OffsetDateTime,
-    Weekday,
-};
+use serde::{ser::SerializeStruct, Serialize, Serializer};
+use time::{Date, Month, OffsetDateTime, Weekday};
 
-use crate::response::TextRepresentable;
+use crate::{response::TextRepresentable, utils::format_date};
 
 #[derive(Clone, Debug)]
 pub struct Day {
@@ -60,10 +56,7 @@ impl Serialize for Day {
         S: Serializer,
     {
         let mut state = serializer.serialize_struct("Day", 3)?;
-        state.serialize_field("date", &self
-            .date
-            .format(&format_description::parse("[year]-[month]-[day]").unwrap())
-            .unwrap())?;
+        state.serialize_field("date", &format_date(self.date))?;
         state.serialize_field("dishes", &self.dishes)?;
         state.end()
     }

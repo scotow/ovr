@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-axum = { version = "0.6.18", features = ["macros"] }
+axum = { version = "0.6.18", features = ["macros", "multipart"] }
 itertools = "0.10.5"
 http-negotiator = { git = "https://github.com/scotow/http-negotiator", rev = "d2232d2", features = ["axum"] }
 lopdf = "0.29.0"

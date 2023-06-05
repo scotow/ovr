@@ -4,18 +4,19 @@ use std::{
 };
 
 use axum::{
-    extract::{FromRef, Query, State},
-    http::{header, HeaderValue},
+    body::{Body, Bytes},
+    extract::{FromRef, FromRequest, Multipart, Query, State},
+    http::{header, HeaderValue, Request},
     middleware::map_response,
     response::{IntoResponse, Response},
-    routing::get,
+    routing::{get, post},
     Router, Server,
 };
 use http_negotiator::{ContentTypeNegotiation, Negotiation, Negotiator};
 use tokio::sync::RwLock;
 
 use crate::{
-    catalogue::Catalogue,
+    catalogue::{Catalogue, CatalogueUpdate},
     error::Error,
     response::{ApiResponse, QueryFormat, ResponseType},
 };
@@ -24,6 +25,7 @@ mod catalogue;
 mod day;
 mod error;
 mod response;
+mod utils;
 mod week;
 
 #[derive(FromRef, Clone)]
@@ -34,26 +36,16 @@ struct AppState {
 
 #[tokio::main]
 async fn main() {
-    let mut catalogue = Catalogue::new();
-    for pdf in [
-        include_bytes!("../S12.pdf").as_slice(),
-        include_bytes!("../S19-2023.pdf").as_slice(),
-        include_bytes!("../S20-2023.pdf").as_slice(),
-        include_bytes!("../S23-2023.pdf").as_slice(),
-    ] {
-        let days = week::parse_pdf(pdf).unwrap();
-        dbg!(catalogue.insert(days));
-    }
-    dbg!(&catalogue);
-
     Server::bind(&SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 8080))
         .http1_title_case_headers(true)
         .serve(
             Router::new()
+                .route("/", post(upload_handler))
+                .route("/upload", post(upload_handler))
                 .route("/today", get(today_handler))
                 .route("/next", get(next_handler))
                 .with_state(AppState {
-                    catalogue: Arc::new(RwLock::new(catalogue)),
+                    catalogue: Arc::new(RwLock::new(Catalogue::new())),
                     negotiator: Arc::new(
                         Negotiator::new([ResponseType::Json, ResponseType::Text])
                             .expect("invalid content-type negotiator"),
@@ -72,16 +64,61 @@ async fn main() {
         .unwrap_err();
 }
 
+async fn upload_handler(
+    State(catalogue): State<Arc<RwLock<Catalogue>>>,
+    request: Request<Body>,
+) -> impl IntoResponse {
+    async fn process(
+        catalogue: Arc<RwLock<Catalogue>>,
+        request: Request<Body>,
+    ) -> Result<CatalogueUpdate, Error> {
+        let mut catalogue_lock = catalogue.write().await;
+        let mut updates = CatalogueUpdate::default();
+        if request
+            .headers()
+            .get(header::CONTENT_TYPE)
+            .and_then(|h| h.to_str().ok())
+            .is_some_and(|h| h.starts_with("multipart/form-data"))
+        {
+            let mut multipart = Multipart::from_request(request, &())
+                .await
+                .map_err(|_| Error::InvalidBody)?;
+            while let Some(field) = multipart
+                .next_field()
+                .await
+                .map_err(|_| Error::InvalidBody)?
+            {
+                let data = field.bytes().await.map_err(|_| Error::InvalidBody)?;
+                let days = week::parse_pdf(&data).map_err(|_| Error::InvalidPdf)?;
+                updates += catalogue_lock.insert(days);
+            }
+        } else {
+            let data = Bytes::from_request(request, &())
+                .await
+                .map_err(|_| Error::InvalidBody)?;
+            let days = week::parse_pdf(&data).map_err(|_| Error::InvalidPdf)?;
+            updates += catalogue_lock.insert(days);
+        }
+        Ok(updates)
+    }
+
+    ApiResponse {
+        response_type: ResponseType::Json,
+        human: false,
+        data: process(catalogue, request).await,
+    }
+}
+
 async fn today_handler(
     State(catalogue): State<Arc<RwLock<Catalogue>>>,
     Query(format): Query<QueryFormat>,
     Negotiation(_, response_type): Negotiation<ContentTypeNegotiation, ResponseType>,
 ) -> impl IntoResponse {
-    ApiResponse(
+    ApiResponse {
         response_type,
-        format,
-        catalogue.read().await.today().ok_or(Error::NoMealToday),
-    )
+        human: format.human,
+        data: catalogue.read().await.today().ok_or(Error::NoMealToday),
+    }
 }
 
 async fn next_handler(
@@ -89,9 +126,9 @@ async fn next_handler(
     Query(format): Query<QueryFormat>,
     Negotiation(_, response_type): Negotiation<ContentTypeNegotiation, ResponseType>,
 ) -> impl IntoResponse {
-    ApiResponse(
+    ApiResponse {
         response_type,
-        format,
-        catalogue.read().await.next().ok_or(Error::NoNextMeal),
-    )
+        human: format.human,
+        data: catalogue.read().await.next().ok_or(Error::NoNextMeal),
+    }
 }
