@@ -47,7 +47,7 @@ async fn main() {
                 .with_state(AppState {
                     catalogue: Arc::new(RwLock::new(Catalogue::new())),
                     negotiator: Arc::new(
-                        Negotiator::new([ResponseType::Json, ResponseType::Text])
+                        Negotiator::new([ResponseType::Json, ResponseType::Text, ResponseType::Html])
                             .expect("invalid content-type negotiator"),
                     ),
                 })
