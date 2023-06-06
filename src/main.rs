@@ -13,6 +13,7 @@ use axum::{
     Router, Server,
 };
 use http_negotiator::{ContentTypeNegotiation, Negotiation, Negotiator};
+use serde::Deserialize;
 use tokio::sync::RwLock;
 
 use crate::{
@@ -44,6 +45,7 @@ async fn main() {
                 .route("/upload", post(upload_handler))
                 .route("/today", get(today_handler))
                 .route("/next", get(next_handler))
+                .route("/find", get(find_handler))
                 .with_state(AppState {
                     catalogue: Arc::new(RwLock::new(Catalogue::new())),
                     negotiator: Arc::new(
@@ -142,4 +144,23 @@ async fn next_handler(
         human: format.human,
         data: catalogue.read().await.next().ok_or(Error::NoNextMeal),
     }
+}
+
+async fn find_handler(
+    State(catalogue): State<Arc<RwLock<Catalogue>>>,
+    Query(query): Query<FindQuery>,
+    Negotiation(_, response_type): Negotiation<ContentTypeNegotiation, ResponseType>,
+) -> impl IntoResponse {
+    ApiResponse {
+        response_type,
+        human: query.human,
+        data: catalogue.read().await.find_dish_next(&query.dish).ok_or(Error::NoNextMeal),
+    }
+}
+
+#[derive(Deserialize)]
+struct FindQuery {
+    #[serde(default)]
+    human: bool,
+    dish: String,
 }

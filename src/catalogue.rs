@@ -53,6 +53,18 @@ impl Catalogue {
             .find(|day| day.date() >= now.date())
             .cloned()
     }
+
+    pub fn find_dish_next(&self, dish: &str) -> Option<Day> {
+        let dish = dish.to_lowercase();
+        let mut now = now_local();
+        if now.time().hour() >= 14 {
+            now += Duration::days(1);
+        }
+        self.days
+            .iter()
+            .find(|day| day.date() >= now.date() && day.dishes_ref().into_iter().map(|d| d.to_lowercase()).any(|d| d.contains(&dish)))
+            .cloned()
+    }
 }
 
 impl TextRepresentable for Catalogue {

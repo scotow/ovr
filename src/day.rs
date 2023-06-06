@@ -48,6 +48,10 @@ impl Day {
     pub fn dishes(self) -> Vec<String> {
         self.dishes
     }
+
+    pub fn dishes_ref(&self) -> &[String] {
+        &self.dishes
+    }
 }
 
 impl Serialize for Day {
