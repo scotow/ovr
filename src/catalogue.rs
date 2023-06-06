@@ -1,13 +1,18 @@
 use std::ops::AddAssign;
 
+use ics::{
+    properties::{Description, DtEnd, DtStart, Status, Summary},
+    Event, ICalendar,
+};
 use itertools::Itertools;
 use serde::{ser::SerializeStruct, Serialize, Serializer};
 use time::{Date, Duration, Weekday};
+use uuid::Uuid;
 
 use crate::{
     day::Day,
     response::TextRepresentable,
-    utils::{format_date, now_local},
+    utils::{format_date, format_icalendar_date, now_local},
 };
 
 #[derive(Serialize, Clone, Debug)]
@@ -90,6 +95,31 @@ impl Catalogue {
 
     pub fn day(&self, date: Date) -> Option<Day> {
         self.days.iter().find(|d| d.date() == date).cloned()
+    }
+
+    pub fn ics(&self) -> Vec<u8> {
+        let mut calendar =
+            ICalendar::new("2.0", "-//xyz Corp//NONSGML PDA Calendar Version 1.0//EN");
+        for day in &self.days {
+            let start = day.date().with_hms(12, 00, 00).unwrap();
+            let start_str = format_icalendar_date(start);
+            let mut event = Event::new(
+                Uuid::new_v5(&Uuid::nil(), start_str.as_bytes()).to_string(),
+                start_str.clone(),
+            );
+            event.push(DtStart::new(start_str));
+            event.push(DtEnd::new(format_icalendar_date(
+                start + Duration::hours(1),
+            )));
+            event.push(Status::confirmed());
+            event.push(Summary::new("Pause déjeuner"));
+            event.push(Description::new(ics::escape_text(day.as_plain_text(false))));
+            calendar.add_event(event);
+        }
+
+        let mut data = Vec::new();
+        calendar.write(&mut data).expect("ics file creation failed");
+        data
     }
 }
 

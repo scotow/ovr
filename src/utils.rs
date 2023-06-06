@@ -2,10 +2,11 @@ use std::sync::OnceLock;
 
 use time::{
     format_description, format_description::FormatItem, macros::offset, util::days_in_year_month,
-    Date, Duration, Month, OffsetDateTime,
+    Date, Duration, Month, OffsetDateTime, PrimitiveDateTime,
 };
 
 static FORMATTER: OnceLock<Vec<FormatItem<'static>>> = OnceLock::new();
+static ICS_FORMATTER: OnceLock<Vec<FormatItem<'static>>> = OnceLock::new();
 
 pub fn now_local() -> OffsetDateTime {
     OffsetDateTime::now_local().unwrap_or_else(|_| {
@@ -40,6 +41,15 @@ pub fn format_date(date: Date) -> String {
         format_description::parse("[year]-[month]-[day]").expect("invalid date formatter")
     }))
     .expect("date formatting failed")
+}
+
+pub fn format_icalendar_date(datetime: PrimitiveDateTime) -> String {
+    datetime
+        .format(ICS_FORMATTER.get_or_init(|| {
+            format_description::parse("[year][month][day]T[hour][minute][second]")
+                .expect("invalid icalendar date formatter")
+        }))
+        .expect("ics datetime formatting failed")
 }
 
 pub fn parse_date(input: &str) -> Option<Date> {

@@ -51,6 +51,7 @@ async fn main() {
                 .route("/find", get(find_handler))
                 .route("/weeks/:week", get(week_handler))
                 .route("/days/:day", get(day_handler))
+                .route("/calendar.ics", get(ics_handler))
                 .with_state(AppState {
                     catalogue: Arc::new(RwLock::new(Catalogue::new())),
                     negotiator: Arc::new(
@@ -218,4 +219,14 @@ async fn day_handler(
         human: format.human,
         data: process(catalogue, date).await,
     }
+}
+
+async fn ics_handler(State(catalogue): State<Arc<RwLock<Catalogue>>>) -> impl IntoResponse {
+    (
+        [(
+            header::CONTENT_TYPE,
+            HeaderValue::from_static("text/calendar"),
+        )],
+        catalogue.read().await.ics(),
+    )
 }
