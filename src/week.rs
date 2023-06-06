@@ -98,7 +98,9 @@ pub fn parse_pdf(pdf_data: &[u8]) -> Result<Vec<Day>, ()> {
 
     columns
         .into_iter()
-        .filter_map(|column| Day::new(column.into_iter().map(|tg| tg.text).collect()).transpose())
+        .filter_map(|column| {
+            Day::new(column.into_iter().map(|tg| tg.text).unique().collect()).transpose()
+        })
         .collect()
 }
 

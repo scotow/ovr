@@ -2,9 +2,13 @@ use std::ops::AddAssign;
 
 use itertools::Itertools;
 use serde::{ser::SerializeStruct, Serialize, Serializer};
-use time::{Date, Duration, OffsetDateTime};
+use time::{Date, Duration};
 
-use crate::{day::Day, response::TextRepresentable, utils::format_date};
+use crate::{
+    day::Day,
+    response::TextRepresentable,
+    utils::{format_date, now_local},
+};
 
 #[derive(Serialize, Clone, Debug)]
 pub struct Catalogue {
@@ -35,12 +39,12 @@ impl Catalogue {
     }
 
     pub fn today(&self) -> Option<Day> {
-        let today = OffsetDateTime::now_local().ok()?.date();
+        let today = now_local().date();
         self.days.iter().find(|day| day.date() == today).cloned()
     }
 
     pub fn next(&self) -> Option<Day> {
-        let mut now = OffsetDateTime::now_local().ok()?;
+        let mut now = now_local();
         if now.time().hour() >= 14 {
             now += Duration::days(1);
         }
@@ -52,8 +56,9 @@ impl Catalogue {
 }
 
 impl TextRepresentable for Catalogue {
-    fn as_text(&self, _human: bool) -> String {
-        self.days.iter()
+    fn as_plain_text(&self, _human: bool) -> String {
+        self.days
+            .iter()
             .map(|day| format_date(day.date()))
             .join("\n")
     }

@@ -1,6 +1,6 @@
 use axum::{
     http::StatusCode,
-    response::{IntoResponse, Response},
+    response::{Html, IntoResponse, Response},
     Json,
 };
 use http_negotiator::AsNegotiationStr;
@@ -40,9 +40,14 @@ impl<T: Serialize + TextRepresentable> IntoResponse for ApiResponse<T> {
                     .into_response()
                 }
                 ResponseType::Text => match self.data {
-                    Ok(data) => data.as_text(self.human),
+                    Ok(data) => data.as_plain_text(self.human),
                     Err(err) => err.to_string(),
                 }
+                .into_response(),
+                ResponseType::Html => Html(match self.data {
+                    Ok(data) => data.as_html(),
+                    Err(err) => format!("<pre>{}</pre>", err.to_string()),
+                })
                 .into_response(),
             },
         )
@@ -54,6 +59,7 @@ impl<T: Serialize + TextRepresentable> IntoResponse for ApiResponse<T> {
 pub enum ResponseType {
     Json,
     Text,
+    Html,
 }
 
 impl AsNegotiationStr for ResponseType {
@@ -61,6 +67,7 @@ impl AsNegotiationStr for ResponseType {
         match self {
             ResponseType::Json => "application/json",
             ResponseType::Text => "text/plain",
+            ResponseType::Html => "text/html",
         }
     }
 }
@@ -72,7 +79,11 @@ pub struct QueryFormat {
 }
 
 pub trait TextRepresentable {
-    fn as_text(&self, _human: bool) -> String {
+    fn as_plain_text(&self, _human: bool) -> String {
+        String::new()
+    }
+
+    fn as_html(&self) -> String {
         String::new()
     }
 }

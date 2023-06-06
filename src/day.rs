@@ -63,9 +63,8 @@ impl Serialize for Day {
 }
 
 impl TextRepresentable for Day {
-    fn as_text(&self, human: bool) -> String {
+    fn as_plain_text(&self, human: bool) -> String {
         if human {
-            // let is_today = OffsetDateTime::now_local().expect("cannot get local date").date() == self.date;
             if self.dishes.len() >= 2 {
                 format!(
                     "Au menu : {} et {}.",
@@ -78,6 +77,20 @@ impl TextRepresentable for Day {
         } else {
             self.dishes.iter().map(|d| format!("- {d}")).join("\n")
         }
+    }
+
+    fn as_html(&self) -> String {
+        format!(
+            r#"
+            <ul>
+            {}
+            </ul>
+            "#,
+            self.dishes
+                .iter()
+                .map(|d| format!("<li>{d}</li>"))
+                .collect::<String>()
+        )
     }
 }
 
