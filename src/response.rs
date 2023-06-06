@@ -3,6 +3,7 @@ use axum::{
     response::{Html, IntoResponse, Response},
     Json,
 };
+use either::Either;
 use http_negotiator::AsNegotiationStr;
 use serde::{Deserialize, Serialize};
 
@@ -41,12 +42,12 @@ impl<T: Serialize + TextRepresentable> IntoResponse for ApiResponse<T> {
                 }
                 ResponseType::Text => match self.data {
                     Ok(data) => data.as_plain_text(self.human),
-                    Err(err) => err.to_string(),
+                    Err(err) => err.as_plain_text(self.human),
                 }
                 .into_response(),
                 ResponseType::Html => Html(match self.data {
                     Ok(data) => data.as_html(),
-                    Err(err) => format!("<pre>{}</pre>", err.to_string()),
+                    Err(err) => err.as_html(),
                 })
                 .into_response(),
             },
@@ -85,5 +86,21 @@ pub trait TextRepresentable {
 
     fn as_html(&self) -> String {
         String::new()
+    }
+}
+
+impl<L: TextRepresentable, R: TextRepresentable> TextRepresentable for Either<L, R> {
+    fn as_plain_text(&self, human: bool) -> String {
+        match self {
+            Either::Left(lhs) => lhs.as_plain_text(human),
+            Either::Right(rhs) => rhs.as_plain_text(human),
+        }
+    }
+
+    fn as_html(&self) -> String {
+        match self {
+            Either::Left(lhs) => lhs.as_html(),
+            Either::Right(rhs) => rhs.as_html(),
+        }
     }
 }

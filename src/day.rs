@@ -78,13 +78,9 @@ impl TextRepresentable for Day {
             } else {
                 self.dishes.iter().join(", ")
             };
-            format!(
-                "Au menu {} : {}.",
-                format_human_date(self.date),
-                dishes_str
-            )
+            format!("Au menu {} : {}.", format_human_date(self.date), dishes_str)
         } else {
-            self.dishes.iter().map(|d| format!("- {d}")).join("\n")
+            self.dishes.iter().join("\n")
         }
     }
 
@@ -175,5 +171,10 @@ fn format_human_date(date: Date) -> String {
     if diff < Duration::days(7) {
         return format!("{} prochain", weekday_as_fr_str(date.weekday()));
     }
-    format!("le {} {} {}", weekday_as_fr_str(date.weekday()), date.day(), month_as_fr_str(date.month()))
+    format!(
+        "le {} {} {}",
+        weekday_as_fr_str(date.weekday()),
+        date.day(),
+        month_as_fr_str(date.month())
+    )
 }

@@ -5,21 +5,24 @@ use std::{
 
 use axum::{
     body::{Body, Bytes},
-    extract::{FromRef, FromRequest, Multipart, Query, State},
+    extract::{FromRef, FromRequest, Multipart, Path, Query, State},
     http::{header, HeaderValue, Request},
     middleware::map_response,
     response::{IntoResponse, Response},
     routing::{get, post},
     Router, Server,
 };
+use either::Either;
 use http_negotiator::{ContentTypeNegotiation, Negotiation, Negotiator};
 use serde::Deserialize;
 use tokio::sync::RwLock;
 
 use crate::{
     catalogue::{Catalogue, CatalogueUpdate},
+    day::Day,
     error::Error,
     response::{ApiResponse, QueryFormat, ResponseType},
+    utils::parse_date,
 };
 
 mod catalogue;
@@ -41,16 +44,22 @@ async fn main() {
         .http1_title_case_headers(true)
         .serve(
             Router::new()
-                .route("/", get(catalogue_handler).post(upload_handler))
+                .route("/", get(index_handler).post(upload_handler))
                 .route("/upload", post(upload_handler))
                 .route("/today", get(today_handler))
                 .route("/next", get(next_handler))
                 .route("/find", get(find_handler))
+                .route("/weeks/:week", get(week_handler))
+                .route("/days/:day", get(day_handler))
                 .with_state(AppState {
                     catalogue: Arc::new(RwLock::new(Catalogue::new())),
                     negotiator: Arc::new(
-                        Negotiator::new([ResponseType::Json, ResponseType::Text, ResponseType::Html])
-                            .expect("invalid content-type negotiator"),
+                        Negotiator::new([
+                            ResponseType::Json,
+                            ResponseType::Text,
+                            ResponseType::Html,
+                        ])
+                        .expect("invalid content-type negotiator"),
                     ),
                 })
                 .layer(map_response(|mut resp: Response| async {
@@ -66,14 +75,19 @@ async fn main() {
         .unwrap_err();
 }
 
-async fn catalogue_handler(
+async fn index_handler(
     State(catalogue): State<Arc<RwLock<Catalogue>>>,
     Negotiation(_, response_type): Negotiation<ContentTypeNegotiation, ResponseType>,
+    Query(format): Query<QueryFormat>,
 ) -> impl IntoResponse {
     ApiResponse {
         response_type,
-        human: false,
-        data: Ok(catalogue.read().await.clone()),
+        human: format.human,
+        data: Ok(if matches!(response_type, ResponseType::Html) {
+            Either::Left(catalogue.read().await.weeks())
+        } else {
+            Either::Right(catalogue.read().await.clone())
+        }),
     }
 }
 
@@ -124,8 +138,8 @@ async fn upload_handler(
 
 async fn today_handler(
     State(catalogue): State<Arc<RwLock<Catalogue>>>,
-    Query(format): Query<QueryFormat>,
     Negotiation(_, response_type): Negotiation<ContentTypeNegotiation, ResponseType>,
+    Query(format): Query<QueryFormat>,
 ) -> impl IntoResponse {
     ApiResponse {
         response_type,
@@ -136,8 +150,8 @@ async fn today_handler(
 
 async fn next_handler(
     State(catalogue): State<Arc<RwLock<Catalogue>>>,
-    Query(format): Query<QueryFormat>,
     Negotiation(_, response_type): Negotiation<ContentTypeNegotiation, ResponseType>,
+    Query(format): Query<QueryFormat>,
 ) -> impl IntoResponse {
     ApiResponse {
         response_type,
@@ -146,21 +160,62 @@ async fn next_handler(
     }
 }
 
-async fn find_handler(
-    State(catalogue): State<Arc<RwLock<Catalogue>>>,
-    Query(query): Query<FindQuery>,
-    Negotiation(_, response_type): Negotiation<ContentTypeNegotiation, ResponseType>,
-) -> impl IntoResponse {
-    ApiResponse {
-        response_type,
-        human: query.human,
-        data: catalogue.read().await.find_dish_next(&query.dish).ok_or(Error::NoNextMeal),
-    }
-}
-
 #[derive(Deserialize)]
 struct FindQuery {
     #[serde(default)]
     human: bool,
     dish: String,
+}
+
+async fn find_handler(
+    State(catalogue): State<Arc<RwLock<Catalogue>>>,
+    Negotiation(_, response_type): Negotiation<ContentTypeNegotiation, ResponseType>,
+    Query(query): Query<FindQuery>,
+) -> impl IntoResponse {
+    ApiResponse {
+        response_type,
+        human: query.human,
+        data: catalogue
+            .read()
+            .await
+            .find_dish_next(&query.dish)
+            .ok_or(Error::NoNextMeal),
+    }
+}
+
+async fn week_handler(
+    State(catalogue): State<Arc<RwLock<Catalogue>>>,
+    Negotiation(_, response_type): Negotiation<ContentTypeNegotiation, ResponseType>,
+    Path(week): Path<String>,
+    Query(format): Query<QueryFormat>,
+) -> impl IntoResponse {
+    async fn process(catalogue: Arc<RwLock<Catalogue>>, week: String) -> Result<Catalogue, Error> {
+        let (year, week) = week.split_once('-').ok_or(Error::InvalidWeek)?;
+        Ok(catalogue.read().await.week(
+            year.parse().map_err(|_| Error::InvalidWeek)?,
+            week.parse().map_err(|_| Error::InvalidWeek)?,
+        ))
+    }
+    ApiResponse {
+        response_type,
+        human: format.human,
+        data: process(catalogue, week).await,
+    }
+}
+
+async fn day_handler(
+    State(catalogue): State<Arc<RwLock<Catalogue>>>,
+    Negotiation(_, response_type): Negotiation<ContentTypeNegotiation, ResponseType>,
+    Path(date): Path<String>,
+    Query(format): Query<QueryFormat>,
+) -> impl IntoResponse {
+    async fn process(catalogue: Arc<RwLock<Catalogue>>, date: String) -> Result<Day, Error> {
+        let date = parse_date(&date).ok_or(Error::InvalidDay)?;
+        catalogue.read().await.day(date).ok_or(Error::InvalidDay)
+    }
+    ApiResponse {
+        response_type,
+        human: format.human,
+        data: process(catalogue, date).await,
+    }
 }

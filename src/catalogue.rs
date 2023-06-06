@@ -2,7 +2,7 @@ use std::ops::AddAssign;
 
 use itertools::Itertools;
 use serde::{ser::SerializeStruct, Serialize, Serializer};
-use time::{Date, Duration};
+use time::{Date, Duration, Weekday};
 
 use crate::{
     day::Day,
@@ -62,17 +62,67 @@ impl Catalogue {
         }
         self.days
             .iter()
-            .find(|day| day.date() >= now.date() && day.dishes_ref().into_iter().map(|d| d.to_lowercase()).any(|d| d.contains(&dish)))
+            .find(|day| {
+                day.date() >= now.date()
+                    && day
+                        .dishes_ref()
+                        .into_iter()
+                        .map(|d| d.to_lowercase())
+                        .any(|d| d.contains(&dish))
+            })
             .cloned()
+    }
+
+    pub fn weeks(&self) -> WeeksList {
+        WeeksList::from(self.days.as_slice())
+    }
+
+    pub fn week(&self, year: i32, week: u8) -> Self {
+        Self {
+            days: self
+                .days
+                .iter()
+                .filter(|d| d.date().year() == year && d.date().iso_week() == week)
+                .cloned()
+                .collect(),
+        }
+    }
+
+    pub fn day(&self, date: Date) -> Option<Day> {
+        self.days.iter().find(|d| d.date() == date).cloned()
     }
 }
 
 impl TextRepresentable for Catalogue {
-    fn as_plain_text(&self, _human: bool) -> String {
+    fn as_plain_text(&self, human: bool) -> String {
         self.days
             .iter()
-            .map(|day| format_date(day.date()))
-            .join("\n")
+            .map(|day| {
+                format!(
+                    "{} :\n{}",
+                    format_date(day.date()),
+                    day.as_plain_text(human)
+                )
+            })
+            .join("\n\n")
+    }
+
+    fn as_html(&self) -> String {
+        let today = now_local().date();
+        self.days
+            .iter()
+            .map(|day| {
+                let day_color = format_date(day.date());
+                let color = if day.date() == today { "red" } else { "blue" };
+                format!(
+                    r#"
+                    <li><a href="/days/{day_color}" style="color: {color};">{day_color}</a></li>
+                    {}
+                "#,
+                    day.as_html()
+                )
+            })
+            .join("<br>")
     }
 }
 
@@ -101,7 +151,7 @@ impl Serialize for CatalogueUpdate {
     where
         S: Serializer,
     {
-        let mut state = serializer.serialize_struct("CatalogueUpdate", 3)?;
+        let mut state = serializer.serialize_struct("CatalogueUpdate", 2)?;
         state.serialize_field(
             "inserted",
             &self
@@ -123,3 +173,83 @@ impl Serialize for CatalogueUpdate {
 }
 
 impl TextRepresentable for CatalogueUpdate {}
+
+pub struct WeeksList {
+    weeks: Vec<Date>,
+}
+
+impl From<&[Day]> for WeeksList {
+    fn from(days: &[Day]) -> Self {
+        Self {
+            weeks: days
+                .into_iter()
+                .map(|d| {
+                    Date::from_iso_week_date(d.date().year(), d.date().iso_week(), Weekday::Monday)
+                        .expect("week list creation failed")
+                })
+                .unique()
+                .collect(),
+        }
+    }
+}
+
+impl Serialize for WeeksList {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        #[derive(Serialize)]
+        struct Week {
+            from: String,
+            to: String,
+        }
+
+        let mut state = serializer.serialize_struct("WeeksList", 1)?;
+        state.serialize_field(
+            "weeks",
+            &self
+                .weeks
+                .iter()
+                .map(|w| Week {
+                    from: format_date(*w),
+                    to: format_date(*w + (Duration::days(4))),
+                })
+                .collect_vec(),
+        )?;
+        state.end()
+    }
+}
+
+impl TextRepresentable for WeeksList {
+    fn as_plain_text(&self, _human: bool) -> String {
+        self.weeks
+            .iter()
+            .map(|week| format!("{}-{}", week.year(), week.iso_week()))
+            .join("\n")
+    }
+
+    fn as_html(&self) -> String {
+        let today = now_local().date();
+        let current = (today.year(), today.iso_week());
+        format!(
+            r#"
+            <ul>
+            {}
+            </ul>
+            "#,
+            self.weeks
+                .iter()
+                .map(|week| {
+                    let week_str = format!("{}-{}", week.year(), week.iso_week());
+                    let color =
+                        if (week.year(), week.iso_week()) == current {
+                            "red"
+                        } else {
+                            "blue"
+                        };
+                    format!(r#"<li><a href="/weeks/{week_str}" style="color: {color};">{week_str}</a></li>"#)
+                })
+                .collect::<String>()
+        )
+    }
+}
