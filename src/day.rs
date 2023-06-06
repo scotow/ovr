@@ -1,8 +1,8 @@
 use itertools::Itertools;
 use serde::{ser::SerializeStruct, Serialize, Serializer};
-use time::{Date, Month, OffsetDateTime, Weekday};
+use time::{Date, Duration, Month, OffsetDateTime, Weekday};
 
-use crate::{response::TextRepresentable, utils::format_date};
+use crate::{response::TextRepresentable, utils, utils::format_date};
 
 #[derive(Clone, Debug)]
 pub struct Day {
@@ -65,15 +65,20 @@ impl Serialize for Day {
 impl TextRepresentable for Day {
     fn as_plain_text(&self, human: bool) -> String {
         if human {
-            if self.dishes.len() >= 2 {
+            let dishes_str = if self.dishes.len() >= 2 {
                 format!(
-                    "Au menu : {} et {}.",
+                    "{} et {}",
                     self.dishes.iter().dropping_back(1).join(", "),
                     self.dishes.last().unwrap(),
                 )
             } else {
-                format!("Au menu : {}.", self.dishes.iter().join(", "),)
-            }
+                self.dishes.iter().join(", ")
+            };
+            format!(
+                "Au menu {} : {}.",
+                format_human_date(self.date),
+                dishes_str
+            )
         } else {
             self.dishes.iter().map(|d| format!("- {d}")).join("\n")
         }
@@ -107,6 +112,18 @@ fn parse_fr_weekday_str(weekday: &str) -> Option<Weekday> {
     }
 }
 
+fn weekday_as_fr_str(weekday: Weekday) -> &'static str {
+    match weekday {
+        Weekday::Monday => "lundi",
+        Weekday::Tuesday => "mardi",
+        Weekday::Wednesday => "mercredi",
+        Weekday::Thursday => "jeudi",
+        Weekday::Friday => "vendredi",
+        Weekday::Saturday => "samedi",
+        Weekday::Sunday => "dimanche",
+    }
+}
+
 fn parse_fr_month_str(month: &str) -> Option<Month> {
     match month.to_lowercase().as_str() {
         "janvier" => Some(Month::January),
@@ -123,4 +140,36 @@ fn parse_fr_month_str(month: &str) -> Option<Month> {
         "décembre" | "decembre" => Some(Month::December),
         _ => None,
     }
+}
+
+fn month_as_fr_str(month: Month) -> &'static str {
+    match month {
+        Month::January => "janvier",
+        Month::February => "février",
+        Month::March => "mars",
+        Month::April => "avril",
+        Month::May => "mai",
+        Month::June => "juin",
+        Month::July => "juillet",
+        Month::August => "août",
+        Month::September => "septembre",
+        Month::October => "octobre",
+        Month::November => "novembre",
+        Month::December => "décembre",
+    }
+}
+
+fn format_human_date(date: Date) -> String {
+    let today = utils::now_local().date();
+    if date == today {
+        return "aujourd'hui".to_owned();
+    }
+    if today.next_day().expect("failed to compute human date") == date {
+        return "demain".to_owned();
+    }
+    let diff = date - today;
+    if diff < Duration::days(7) {
+        return format!("{} prochain", weekday_as_fr_str(date.weekday()));
+    }
+    format!("le {} {} {}", weekday_as_fr_str(date.weekday()), date.day(), month_as_fr_str(date.month()))
 }
