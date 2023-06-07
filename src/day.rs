@@ -168,7 +168,7 @@ fn format_human_date(date: Date) -> String {
         return "demain".to_owned();
     }
     let diff = date - today;
-    if diff < Duration::days(7) {
+    if diff <= Duration::days(7) {
         return format!("{} prochain", weekday_as_fr_str(date.weekday()));
     }
     format!(

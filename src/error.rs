@@ -18,6 +18,10 @@ pub enum Error {
     InvalidWeek,
     #[error("invalid day")]
     InvalidDay,
+    #[error("week not found")]
+    WeekNotFound,
+    #[error("day not found")]
+    DayNotFound,
 }
 
 impl Error {
@@ -29,6 +33,8 @@ impl Error {
             Error::NoNextMeal => StatusCode::NOT_FOUND,
             Error::InvalidWeek => StatusCode::BAD_REQUEST,
             Error::InvalidDay => StatusCode::BAD_REQUEST,
+            Error::WeekNotFound => StatusCode::NOT_FOUND,
+            Error::DayNotFound => StatusCode::NOT_FOUND,
         }
     }
 }
@@ -49,6 +55,10 @@ impl TextRepresentable for Error {
         match self {
             Error::NoMealToday => "Aucun repas de prévu pour aujourd'hui.".to_owned(),
             Error::NoNextMeal => "Aucun repas de prévu pour bientôt.".to_owned(),
+            Error::InvalidWeek => "Format de semaine incorrect.".to_owned(),
+            Error::InvalidDay => "Format de date incorrect.".to_owned(),
+            Error::WeekNotFound => "Aucun menu trouvé pour cette semaine.".to_owned(),
+            Error::DayNotFound => "Aucun menu trouvé pour ce jour.".to_owned(),
             _ => self.to_string(),
         }
     }

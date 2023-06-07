@@ -192,10 +192,10 @@ async fn week_handler(
 ) -> impl IntoResponse {
     async fn process(catalogue: Arc<RwLock<Catalogue>>, week: String) -> Result<Catalogue, Error> {
         let (year, week) = week.split_once('-').ok_or(Error::InvalidWeek)?;
-        Ok(catalogue.read().await.week(
+        catalogue.read().await.week(
             year.parse().map_err(|_| Error::InvalidWeek)?,
             week.parse().map_err(|_| Error::InvalidWeek)?,
-        ))
+        )
     }
     ApiResponse {
         response_type,
@@ -212,7 +212,7 @@ async fn day_handler(
 ) -> impl IntoResponse {
     async fn process(catalogue: Arc<RwLock<Catalogue>>, date: String) -> Result<Day, Error> {
         let date = parse_date(&date).ok_or(Error::InvalidDay)?;
-        catalogue.read().await.day(date).ok_or(Error::InvalidDay)
+        catalogue.read().await.day(date)
     }
     ApiResponse {
         response_type,

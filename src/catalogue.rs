@@ -14,6 +14,7 @@ use crate::{
     response::TextRepresentable,
     utils::{format_date, format_icalendar_date, now_local},
 };
+use crate::error::Error;
 
 #[derive(Serialize, Clone, Debug)]
 pub struct Catalogue {
@@ -72,8 +73,7 @@ impl Catalogue {
                     && day
                         .dishes_ref()
                         .into_iter()
-                        .map(|d| d.to_lowercase())
-                        .any(|d| d.contains(&dish))
+                        .any(|d| d.to_lowercase().contains(&dish))
             })
             .cloned()
     }
@@ -82,19 +82,22 @@ impl Catalogue {
         WeeksList::from(self.days.as_slice())
     }
 
-    pub fn week(&self, year: i32, week: u8) -> Self {
-        Self {
-            days: self
-                .days
-                .iter()
-                .filter(|d| d.date().year() == year && d.date().iso_week() == week)
-                .cloned()
-                .collect(),
+    pub fn week(&self, year: i32, week: u8) -> Result<Self, Error> {
+        let days = self
+            .days
+            .iter()
+            .filter(|d| d.date().year() == year && d.date().iso_week() == week)
+            .cloned()
+            .collect_vec();
+        if days.is_empty() {
+            Err(Error::WeekNotFound)
+        } else {
+            Ok(Self { days })
         }
     }
 
-    pub fn day(&self, date: Date) -> Option<Day> {
-        self.days.iter().find(|d| d.date() == date).cloned()
+    pub fn day(&self, date: Date) -> Result<Day, Error> {
+        self.days.iter().find(|d| d.date() == date).cloned().ok_or(Error::DayNotFound)
     }
 
     pub fn ics(&self) -> Vec<u8> {
