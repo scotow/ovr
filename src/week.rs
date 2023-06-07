@@ -1,3 +1,4 @@
+use std::mem;
 use std::ops::AddAssign;
 
 use itertools::Itertools;
@@ -69,8 +70,6 @@ pub fn parse_pdf(pdf_data: &[u8]) -> Result<Vec<Day>, Error> {
         .collect::<Vec<_>>();
     words.retain(|w| !lines_to_clear.contains(&w.top));
 
-    let mut dishes_counts = words.iter().map(|w| w.text.to_lowercase()).counts();
-
     let mut columns = Vec::<Vec<DishBuilder>>::with_capacity(5);
     for word in words {
         match columns
@@ -81,21 +80,25 @@ pub fn parse_pdf(pdf_data: &[u8]) -> Result<Vec<Day>, Error> {
             None => columns.push(vec![word]),
         }
     }
-    // Discard empty days.
-    columns.retain(|c| c.len() >= 2);
-
-    // Remove lines containing the same dish.
+    // Remove duplicates.
+    for column in &mut columns {
+        *column = mem::take(column).into_iter().unique_by(|d| d.text.to_lowercase()).collect();
+    }
+    // Remove too frequent dishes.
     if columns.len() >= 4 {
+        let mut dishes_counts = columns.iter().flat_map(|c| c.iter()).map(|d| d.text.to_lowercase()).counts();
         dishes_counts.retain(|_, n| *n >= columns.len() - 1);
         for column in &mut columns {
             column.retain(|tg| !dishes_counts.contains_key(&tg.text.to_lowercase()));
         }
     }
+    // Discard empty days.
+    columns.retain(|c| c.len() >= 2);
 
     columns
         .into_iter()
         .filter_map(|column| {
-            Day::new(column.into_iter().map(|tg| tg.text).unique().collect()).transpose()
+            Day::new(column.into_iter().map(|tg| tg.text).collect()).transpose()
         })
         .collect()
 }
