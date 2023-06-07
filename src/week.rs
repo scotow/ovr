@@ -46,7 +46,7 @@ pub fn parse_pdf(pdf_data: &[u8]) -> Result<Vec<Day>, Error> {
     for div in divs {
         match words.last_mut() {
             Some(last) => {
-                if last.top == div.top && div.left.abs_diff(last.end) < 30 {
+                if last.top == div.top && last.end.abs_diff(div.left) < 30 {
                     *last += div;
                 } else {
                     last.trim();
@@ -127,25 +127,25 @@ impl DishBuilder {
 
 impl<'a> From<Div<'a>> for DishBuilder {
     fn from(value: Div<'a>) -> Self {
+        let text = value.text.trim_start().to_owned();
         DishBuilder {
             top: value.top,
             start: value.left,
-            end: value.left,
-            text: value.text.trim_start().to_owned(),
+            end: value.left + text.chars().count() as u32 * 4,
+            text,
         }
     }
 }
 
 impl<'a> AddAssign<Div<'a>> for DishBuilder {
     fn add_assign(&mut self, mut rhs: Div<'a>) {
-        self.end = rhs.left;
         while rhs.text.ends_with("  ") {
             rhs.text = rhs.text.trim_end_matches(' ');
         }
         if self.text.ends_with(' ') {
-            self.text += rhs.text.trim_start();
-        } else {
-            self.text += rhs.text;
+            rhs.text = rhs.text.trim_start();
         }
+        self.end = rhs.left + rhs.text.chars().count() as u32 * 4;
+        self.text += rhs.text;
     }
 }
