@@ -11,10 +11,10 @@ use uuid::Uuid;
 
 use crate::{
     day::Day,
+    error::Error,
     response::TextRepresentable,
     utils::{format_date, format_icalendar_date, now_local},
 };
-use crate::error::Error;
 
 #[derive(Serialize, Clone, Debug)]
 pub struct Catalogue {
@@ -97,7 +97,11 @@ impl Catalogue {
     }
 
     pub fn day(&self, date: Date) -> Result<Day, Error> {
-        self.days.iter().find(|d| d.date() == date).cloned().ok_or(Error::DayNotFound)
+        self.days
+            .iter()
+            .find(|d| d.date() == date)
+            .cloned()
+            .ok_or(Error::DayNotFound)
     }
 
     pub fn ics(&self) -> Vec<u8> {

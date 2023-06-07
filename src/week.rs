@@ -5,59 +5,55 @@ use lopdf::Document;
 use pdf_extract::HTMLOutput;
 use regex::Regex;
 
-use crate::day::Day;
+use crate::{day::Day, error::Error};
 
 const MIN_WORDS_PER_LINE: usize = 3;
 
-pub fn parse_pdf(pdf_data: &[u8]) -> Result<Vec<Day>, ()> {
-    let document = Document::load_mem(pdf_data).map_err(|_| ())?;
+pub fn parse_pdf(pdf_data: &[u8]) -> Result<Vec<Day>, Error> {
+    let document = Document::load_mem(pdf_data).map_err(|_| Error::InvalidPdf)?;
     let mut out_buffer = Vec::new();
     let mut parser = HTMLOutput::new(&mut out_buffer);
-    pdf_extract::output_doc(&document, &mut parser).map_err(|_| ())?;
+    pdf_extract::output_doc(&document, &mut parser).map_err(|_| Error::InvalidPdf)?;
 
     let html = String::from_utf8(out_buffer)
-        .unwrap()
+        .map_err(|_| Error::Internal)?
         .replace("&nbsp;", " ");
-    let div_regex = Regex::new(r#"<div style='(.+?)'>(.+?)</div>"#).unwrap();
-    let top_regex = Regex::new(r#"top:\s?(\d+)(?:\.\d+)?px"#).unwrap();
-    let left_regex = Regex::new(r#"left:\s?(\d+)(?:\.\d+)?px"#).unwrap();
+    let div_regex = Regex::new(r#"<div style='(.+?)'>(.+?)</div>"#).map_err(|_| Error::Internal)?;
+    let top_regex = Regex::new(r#"top:\s?(\d+)(?:\.\d+)?px"#).map_err(|_| Error::Internal)?;
+    let left_regex = Regex::new(r#"left:\s?(\d+)(?:\.\d+)?px"#).map_err(|_| Error::Internal)?;
 
-    let mut groups = div_regex
+    let mut divs = div_regex
         .captures_iter(&html)
         .filter_map(|capture| {
             let style = &capture[1];
             if style.contains("color: red") {
                 return None;
             }
-            let group = Div {
-                top: top_regex.captures(style).unwrap()[1].parse().unwrap(),
-                left: left_regex.captures(style).unwrap()[1].parse().unwrap(),
+            let div = Div {
+                top: top_regex.captures(style)?[1].parse().ok()?,
+                left: left_regex.captures(style)?[1].parse().ok()?,
                 text: capture.get(2).unwrap().as_str(),
             };
-            if !(100..530).contains(&group.top) {
+            if !(100..530).contains(&div.top) {
                 return None;
             }
-            Some(Div {
-                top: top_regex.captures(style).unwrap()[1].parse().unwrap(),
-                left: left_regex.captures(style).unwrap()[1].parse().unwrap(),
-                text: capture.get(2).unwrap().as_str(),
-            })
+            Some(div)
         })
         .collect::<Vec<_>>();
-    groups.sort_by_key(|d| (d.top, d.left));
+    divs.sort_by_key(|d| (d.top, d.left));
 
-    let mut words = Vec::<TextGroup>::new();
-    for g in groups {
+    let mut words = Vec::<DishBuilder>::new();
+    for div in divs {
         match words.last_mut() {
             Some(last) => {
-                if last.top == g.top && g.left.abs_diff(last.end) < 30 {
-                    *last += g;
+                if last.top == div.top && div.left.abs_diff(last.end) < 30 {
+                    *last += div;
                 } else {
                     last.trim();
-                    words.push(TextGroup::from(g));
+                    words.push(DishBuilder::from(div));
                 }
             }
-            None => words.push(TextGroup::from(g)),
+            None => words.push(DishBuilder::from(div)),
         }
     }
     if let Some(last) = words.last_mut() {
@@ -75,7 +71,7 @@ pub fn parse_pdf(pdf_data: &[u8]) -> Result<Vec<Day>, ()> {
 
     let mut dishes_counts = words.iter().map(|w| w.text.to_lowercase()).counts();
 
-    let mut columns = Vec::<Vec<TextGroup>>::with_capacity(5);
+    let mut columns = Vec::<Vec<DishBuilder>>::with_capacity(5);
     for word in words {
         match columns
             .iter_mut()
@@ -112,14 +108,14 @@ struct Div<'a> {
 }
 
 #[derive(Debug)]
-pub struct TextGroup {
+pub struct DishBuilder {
     top: u32,
     start: u32,
     end: u32,
     text: String,
 }
 
-impl TextGroup {
+impl DishBuilder {
     fn center(&self) -> u32 {
         self.start + (self.end - self.start) / 2
     }
@@ -129,9 +125,9 @@ impl TextGroup {
     }
 }
 
-impl<'a> From<Div<'a>> for TextGroup {
+impl<'a> From<Div<'a>> for DishBuilder {
     fn from(value: Div<'a>) -> Self {
-        TextGroup {
+        DishBuilder {
             top: value.top,
             start: value.left,
             end: value.left,
@@ -140,7 +136,7 @@ impl<'a> From<Div<'a>> for TextGroup {
     }
 }
 
-impl<'a> AddAssign<Div<'a>> for TextGroup {
+impl<'a> AddAssign<Div<'a>> for DishBuilder {
     fn add_assign(&mut self, mut rhs: Div<'a>) {
         self.end = rhs.left;
         while rhs.text.ends_with("  ") {

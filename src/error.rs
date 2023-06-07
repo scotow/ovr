@@ -22,6 +22,8 @@ pub enum Error {
     WeekNotFound,
     #[error("day not found")]
     DayNotFound,
+    #[error("internal error")]
+    Internal,
 }
 
 impl Error {
@@ -35,6 +37,7 @@ impl Error {
             Error::InvalidDay => StatusCode::BAD_REQUEST,
             Error::WeekNotFound => StatusCode::NOT_FOUND,
             Error::DayNotFound => StatusCode::NOT_FOUND,
+            Error::Internal => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
 }

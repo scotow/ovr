@@ -2,7 +2,7 @@ use itertools::Itertools;
 use serde::{ser::SerializeStruct, Serialize, Serializer};
 use time::{Date, Duration, Month, OffsetDateTime, Weekday};
 
-use crate::{response::TextRepresentable, utils, utils::format_date};
+use crate::{error::Error, response::TextRepresentable, utils, utils::format_date};
 
 #[derive(Clone, Debug)]
 pub struct Day {
@@ -11,16 +11,19 @@ pub struct Day {
 }
 
 impl Day {
-    pub fn new(fields: Vec<String>) -> Result<Option<Day>, ()> {
+    pub fn new(fields: Vec<String>) -> Result<Option<Day>, Error> {
         match fields.len() {
-            0 => return Err(()),
+            0 => return Err(Error::InvalidPdf),
             1 => return Ok(None),
             _ => (),
         };
-        let (weekday, day, month) = fields[0].splitn(3, ' ').collect_tuple().unwrap();
-        let weekday = parse_fr_weekday_str(weekday).unwrap();
-        let day = day.parse().unwrap();
-        let month = parse_fr_month_str(month).unwrap();
+        let (weekday, day, month) = fields[0]
+            .splitn(3, ' ')
+            .collect_tuple()
+            .ok_or(Error::InvalidPdf)?;
+        let weekday = parse_fr_weekday_str(weekday).ok_or(Error::InvalidPdf)?;
+        let day = day.parse().map_err(|_| Error::InvalidPdf)?;
+        let month = parse_fr_month_str(month).ok_or(Error::InvalidPdf)?;
 
         let now = OffsetDateTime::now_utc();
         let date = (now.year() - 1..=now.year() + 1)
@@ -29,7 +32,7 @@ impl Day {
                 (date.weekday() == weekday).then_some(date)
             })
             .min_by_key(|date| (*date - now.date()).abs())
-            .unwrap();
+            .ok_or(Error::InvalidPdf)?;
 
         Ok(Some(Self {
             date,

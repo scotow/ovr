@@ -117,14 +117,14 @@ async fn upload_handler(
                 .map_err(|_| Error::InvalidBody)?
             {
                 let data = field.bytes().await.map_err(|_| Error::InvalidBody)?;
-                let days = week::parse_pdf(&data).map_err(|_| Error::InvalidPdf)?;
+                let days = week::parse_pdf(&data)?;
                 updates += catalogue_lock.insert(days);
             }
         } else {
             let data = Bytes::from_request(request, &())
                 .await
                 .map_err(|_| Error::InvalidBody)?;
-            let days = week::parse_pdf(&data).map_err(|_| Error::InvalidPdf)?;
+            let days = week::parse_pdf(&data)?;
             updates += catalogue_lock.insert(days);
         }
         Ok(updates)
