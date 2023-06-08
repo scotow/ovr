@@ -1,7 +1,6 @@
-use std::mem;
-use std::ops::AddAssign;
+use std::{mem, ops::AddAssign};
 
-use itertools::Itertools;
+use itertools::{chain, Itertools};
 use lopdf::Document;
 use pdf_extract::HTMLOutput;
 use regex::Regex;
@@ -61,15 +60,33 @@ pub fn parse_pdf(pdf_data: &[u8]) -> Result<Vec<Day>, Error> {
         last.trim();
     }
 
-    let lines_to_clear = words
-        .iter()
-        .map(|w| w.top)
-        .counts()
-        .into_iter()
-        .filter_map(|(t, n)| (n < MIN_WORDS_PER_LINE).then_some(t))
-        .collect::<Vec<_>>();
+    let lines_to_clear = chain!(
+        // Not dishes lines.
+        words
+            .iter()
+            .map(|w| w.top)
+            .counts()
+            .into_iter()
+            .filter_map(|(t, n)| (n < MIN_WORDS_PER_LINE).then_some(t)),
+        // Repeating lines.
+        words
+            .iter()
+            .map(|w| (w.top, w.text.to_lowercase()))
+            .into_group_map()
+            .into_iter()
+            .filter_map(|(t, dishes)| {
+                dishes
+                    .iter()
+                    .counts()
+                    .values()
+                    .any(|&n| n >= dishes.len().saturating_sub(1)) // Margin error of 1 column.
+                    .then_some(t)
+            })
+    )
+    .collect::<Vec<_>>();
     words.retain(|w| !lines_to_clear.contains(&w.top));
 
+    // Build columns.
     let mut columns = Vec::<Vec<DishBuilder>>::with_capacity(5);
     for word in words {
         match columns
@@ -82,24 +99,21 @@ pub fn parse_pdf(pdf_data: &[u8]) -> Result<Vec<Day>, Error> {
     }
     // Remove duplicates.
     for column in &mut columns {
-        *column = mem::take(column).into_iter().unique_by(|d| d.text.to_lowercase()).collect();
-    }
-    // Remove too frequent dishes.
-    if columns.len() >= 4 {
-        let mut dishes_counts = columns.iter().flat_map(|c| c.iter()).map(|d| d.text.to_lowercase()).counts();
-        dishes_counts.retain(|_, n| *n >= columns.len() - 1);
-        for column in &mut columns {
-            column.retain(|tg| !dishes_counts.contains_key(&tg.text.to_lowercase()));
-        }
+        *column = mem::take(column)
+            .into_iter()
+            .unique_by(|d| d.text.to_lowercase())
+            .collect();
     }
     // Discard empty days.
     columns.retain(|c| c.len() >= 2);
 
+    if columns.is_empty() {
+        return Err(Error::InvalidPdf);
+    }
+
     columns
         .into_iter()
-        .filter_map(|column| {
-            Day::new(column.into_iter().map(|tg| tg.text).collect()).transpose()
-        })
+        .filter_map(|column| Day::new(column.into_iter().map(|tg| tg.text).collect()).transpose())
         .collect()
 }
 
