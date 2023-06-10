@@ -2,7 +2,11 @@ use itertools::Itertools;
 use serde::{ser::SerializeStruct, Serialize, Serializer};
 use time::{Date, Duration, Month, OffsetDateTime, Weekday};
 
-use crate::{error::Error, response::TextRepresentable, utils, utils::format_date};
+use crate::{
+    error::Error,
+    response::TextRepresentable,
+    utils::{format_date, now_local, to_titlecase},
+};
 
 #[derive(Clone, Debug)]
 pub struct Day {
@@ -88,15 +92,27 @@ impl TextRepresentable for Day {
     }
 
     fn as_html(&self) -> String {
+        let day_str = format_date(self.date());
+        let class_str = if self.date == now_local().date() {
+            "current"
+        } else {
+            ""
+        };
+
         format!(
             r#"
-            <ul>
-            {}
-            </ul>
-            "#,
+            <div class="day {class_str}">
+                <a href="/days/{day_str}">{} {} {} {}</a>
+                {}
+            </div>
+        "#,
+            to_titlecase(weekday_as_fr_str(self.date.weekday())),
+            self.date.day(),
+            month_as_fr_str(self.date.month()),
+            self.date.year(),
             self.dishes
                 .iter()
-                .map(|d| format!("<li>{d}</li>"))
+                .map(|dish| format!(r#"<div class="dish">{dish}</div>"#))
                 .collect::<String>()
         )
     }
@@ -163,7 +179,7 @@ fn month_as_fr_str(month: Month) -> &'static str {
 }
 
 fn format_human_date(date: Date) -> String {
-    let today = utils::now_local().date();
+    let today = now_local().date();
     if date == today {
         return "aujourd'hui".to_owned();
     }

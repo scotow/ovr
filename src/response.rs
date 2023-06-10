@@ -46,7 +46,7 @@ impl<T: Serialize + TextRepresentable> IntoResponse for ApiResponse<T> {
                 }
                 .into_response(),
                 ResponseType::Html => Html(match self.data {
-                    Ok(data) => data.as_html(),
+                    Ok(data) => include_str!("wrapper.html").replace("$BODY", &data.as_html()),
                     Err(err) => err.as_html(),
                 })
                 .into_response(),

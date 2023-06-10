@@ -1,0 +1,64 @@
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Menu</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Source+Sans+Pro:wght@400;600&display=swap');
+
+        body {
+            margin: 28px 20px 20px 20px;
+            font-size: 0;
+            font-family: 'Source Sans Pro', sans-serif;
+            text-align: center;
+            color: white;
+            background-color: #131313;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: #15b154;
+        }
+
+        .week {
+            display: block;
+            font-size: 30px;
+            font-weight: 600;
+            color: white;
+        }
+
+        .week.current {
+            color: #15b154;
+        }
+
+        .day {
+            margin-bottom: 40px;
+        }
+
+        .day > a {
+            display: block;
+            margin-bottom: 10px;
+            font-size: 30px;
+            font-weight: 600;
+            color: white;
+        }
+
+        .day.current > a {
+            color: #15b154;
+        }
+
+        .dish {
+            font-size: 24px;
+            color: lightgray;
+        }
+    </style>
+</head>
+<body>
+    $BODY
+</body>
+</html>

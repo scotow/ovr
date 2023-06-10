@@ -145,21 +145,7 @@ impl TextRepresentable for Catalogue {
     }
 
     fn as_html(&self) -> String {
-        let today = now_local().date();
-        self.days
-            .iter()
-            .map(|day| {
-                let day_color = format_date(day.date());
-                let color = if day.date() == today { "red" } else { "blue" };
-                format!(
-                    r#"
-                    <li><a href="/days/{day_color}" style="color: {color};">{day_color}</a></li>
-                    {}
-                "#,
-                    day.as_html()
-                )
-            })
-            .join("<br>")
+        self.days.iter().map(Day::as_html).collect()
     }
 }
 
@@ -268,25 +254,22 @@ impl TextRepresentable for WeeksList {
     fn as_html(&self) -> String {
         let today = now_local().date();
         let current = (today.year(), today.iso_week());
-        format!(
-            r#"
-            <ul>
-            {}
-            </ul>
-            "#,
-            self.weeks
-                .iter()
-                .map(|week| {
-                    let week_str = format!("{}-{}", week.year(), week.iso_week());
-                    let color =
-                        if (week.year(), week.iso_week()) == current {
-                            "red"
-                        } else {
-                            "blue"
-                        };
-                    format!(r#"<li><a href="/weeks/{week_str}" style="color: {color};">{week_str}</a></li>"#)
-                })
-                .collect::<String>()
-        )
+        self.weeks
+            .iter()
+            .map(|week| {
+                let class_str = if (week.year(), week.iso_week()) == current {
+                    "current"
+                } else {
+                    ""
+                };
+                format!(
+                    r#"<a href="/weeks/{}-{}" class="week {class_str}">Semaine {} - {}</a>"#,
+                    week.year(),
+                    week.iso_week(),
+                    week.iso_week(),
+                    week.year()
+                )
+            })
+            .collect()
     }
 }

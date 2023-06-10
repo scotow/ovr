@@ -61,3 +61,11 @@ pub fn parse_date(input: &str) -> Option<Date> {
     )
     .ok()
 }
+
+pub fn to_titlecase(input: &str) -> String {
+    input
+        .chars()
+        .enumerate()
+        .map(|(i, c)| if i == 0 { c.to_ascii_uppercase() } else { c })
+        .collect()
+}
