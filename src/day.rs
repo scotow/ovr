@@ -92,7 +92,6 @@ impl TextRepresentable for Day {
     }
 
     fn as_html(&self) -> String {
-        let day_str = format_date(self.date());
         let class_str = if self.date == now_local().date() {
             "current"
         } else {
@@ -102,10 +101,11 @@ impl TextRepresentable for Day {
         format!(
             r#"
             <div class="day {class_str}">
-                <a href="/days/{day_str}">{} {} {} {}</a>
+                <a href="/days/{}">{} {} {} {}</a>
                 {}
             </div>
         "#,
+            format_date(self.date()),
             to_titlecase(weekday_as_fr_str(self.date.weekday())),
             self.date.day(),
             month_as_fr_str(self.date.month()),
