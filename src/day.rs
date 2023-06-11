@@ -5,7 +5,7 @@ use time::{Date, Duration, Month, OffsetDateTime, Weekday};
 use crate::{
     error::Error,
     response::TextRepresentable,
-    utils::{format_date, now_local, to_titlecase},
+    utils::{format_date, now_local},
 };
 
 #[derive(Clone, Debug)]
@@ -105,8 +105,8 @@ impl TextRepresentable for Day {
                 {}
             </div>
         "#,
-            format_date(self.date()),
-            to_titlecase(weekday_as_fr_str(self.date.weekday())),
+            format_date(self.date),
+            weekday_as_fr_str(self.date.weekday(), true),
             self.date.day(),
             month_as_fr_str(self.date.month()),
             self.date.year(),
@@ -131,16 +131,16 @@ fn parse_fr_weekday_str(weekday: &str) -> Option<Weekday> {
     }
 }
 
-fn weekday_as_fr_str(weekday: Weekday) -> &'static str {
-    match weekday {
-        Weekday::Monday => "lundi",
-        Weekday::Tuesday => "mardi",
-        Weekday::Wednesday => "mercredi",
-        Weekday::Thursday => "jeudi",
-        Weekday::Friday => "vendredi",
-        Weekday::Saturday => "samedi",
-        Weekday::Sunday => "dimanche",
-    }
+fn weekday_as_fr_str(weekday: Weekday, titlecase: bool) -> &'static str {
+    (match weekday {
+        Weekday::Monday => ["lundi", "Lundi"],
+        Weekday::Tuesday => ["mardi", "Mardi"],
+        Weekday::Wednesday => ["mercredi", "Mercredi"],
+        Weekday::Thursday => ["jeudi", "Jeudi"],
+        Weekday::Friday => ["vendredi", "Vendredi"],
+        Weekday::Saturday => ["samedi", "Samedi"],
+        Weekday::Sunday => ["dimanche", "Dimanche"],
+    })[titlecase as usize]
 }
 
 fn parse_fr_month_str(month: &str) -> Option<Month> {
@@ -187,12 +187,12 @@ fn format_human_date(date: Date) -> String {
         return "demain".to_owned();
     }
     let diff = date - today;
-    if diff <= Duration::days(7) {
-        return format!("{} prochain", weekday_as_fr_str(date.weekday()));
+    if diff.is_positive() && diff <= Duration::days(7) {
+        return format!("{} prochain", weekday_as_fr_str(date.weekday(), false));
     }
     format!(
         "le {} {} {}",
-        weekday_as_fr_str(date.weekday()),
+        weekday_as_fr_str(date.weekday(), false),
         date.day(),
         month_as_fr_str(date.month())
     )
