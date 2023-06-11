@@ -11,7 +11,14 @@
 - `/find?dish=YOUR_FAVORITE_DISH`
 - [iCalendar](https://icalendar.org)
 
-### Docker
+## Upload
+
+```bash
+# Upload all pdf in the current directory:
+$ ls *.pdf | xargs printf -- '-F file=@%s\n' | xargs curl -v localhost:8080
+```
+
+## Docker
 
 ```
 docker run ghcr.io/scotow/ovr/api:latest
