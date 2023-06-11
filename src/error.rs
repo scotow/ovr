@@ -67,6 +67,6 @@ impl TextRepresentable for Error {
     }
 
     fn as_html(&self) -> String {
-        format!("<pre>{}</pre>", self.as_plain_text(false))
+        format!(r#"<div class="error">{}</div>"#, self.as_plain_text(false))
     }
 }

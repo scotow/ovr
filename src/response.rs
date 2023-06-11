@@ -45,10 +45,13 @@ impl<T: Serialize + TextRepresentable> IntoResponse for ApiResponse<T> {
                     Err(err) => err.as_plain_text(self.human),
                 }
                 .into_response(),
-                ResponseType::Html => Html(match self.data {
-                    Ok(data) => include_str!("wrapper.html").replace("$BODY", &data.as_html()),
-                    Err(err) => err.as_html(),
-                })
+                ResponseType::Html => Html(include_str!("wrapper.html").replace(
+                    "$BODY",
+                    &match self.data {
+                        Ok(data) => data.as_html(),
+                        Err(err) => err.as_html(),
+                    },
+                ))
                 .into_response(),
             },
         )
