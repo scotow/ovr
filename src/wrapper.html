@@ -3,13 +3,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Menu</title>
+    <link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600&display=block" rel="stylesheet">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Source+Sans+Pro:wght@400;600&display=swap');
-
         body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
             margin: 28px 20px 20px 20px;
             font-size: 0;
-            font-family: 'Source Sans Pro', sans-serif;
+            font-family: 'Source Sans 3', sans-serif;
             text-align: center;
             color: white;
             background-color: #131313;
@@ -29,6 +31,7 @@
             display: block;
             font-size: 30px;
             font-weight: 600;
+            line-height: 38px;
             color: white;
         }
 
@@ -37,6 +40,9 @@
         }
 
         .day {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
             margin-bottom: 40px;
         }
 
@@ -45,6 +51,7 @@
             margin-bottom: 10px;
             font-size: 30px;
             font-weight: 600;
+            line-height: 38px;
             color: white;
         }
 
@@ -54,6 +61,7 @@
 
         .dish {
             font-size: 24px;
+            line-height: 32px;
             color: lightgray;
         }
     </style>
