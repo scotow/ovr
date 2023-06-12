@@ -165,7 +165,11 @@ impl CatalogueUpdate {
 impl AddAssign<Self> for CatalogueUpdate {
     fn add_assign(&mut self, rhs: Self) {
         self.inserted.extend(rhs.inserted);
-        self.replaced.extend(rhs.replaced);
+        for replaced in rhs.replaced {
+            if !self.inserted.contains(&replaced) {
+                self.replaced.push(replaced);
+            }
+        }
     }
 }
 
