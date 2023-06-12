@@ -13,7 +13,7 @@ use axum::{
     Router, Server,
 };
 use either::Either;
-use http_negotiator::{ContentTypeNegotiation, Negotiation, Negotiator};
+use http_negotiator::{ContentTypeNegotiation, Negotiator};
 use serde::Deserialize;
 use tokio::sync::RwLock;
 
@@ -21,9 +21,10 @@ use crate::{
     catalogue::{Catalogue, CatalogueUpdate},
     day::Day,
     error::Error,
-    response::{ApiResponse, QueryFormat, ResponseType},
+    response::{ApiResponse, ResponseTypeRaw},
     utils::parse_date,
 };
+use crate::response::ResponseType;
 
 mod catalogue;
 mod day;
@@ -35,7 +36,7 @@ mod week;
 #[derive(FromRef, Clone)]
 struct AppState {
     catalogue: Arc<RwLock<Catalogue>>,
-    pub negotiator: Arc<Negotiator<ContentTypeNegotiation, ResponseType>>,
+    negotiator: Arc<Negotiator<ContentTypeNegotiation, ResponseTypeRaw>>,
 }
 
 #[tokio::main]
@@ -56,9 +57,9 @@ async fn main() {
                     catalogue: Arc::new(RwLock::new(Catalogue::new())),
                     negotiator: Arc::new(
                         Negotiator::new([
-                            ResponseType::Json,
-                            ResponseType::Text,
-                            ResponseType::Html,
+                            ResponseTypeRaw::Json,
+                            ResponseTypeRaw::Text,
+                            ResponseTypeRaw::Html,
                         ])
                         .expect("invalid content-type negotiator"),
                     ),
@@ -78,12 +79,10 @@ async fn main() {
 
 async fn index_handler(
     State(catalogue): State<Arc<RwLock<Catalogue>>>,
-    Negotiation(_, response_type): Negotiation<ContentTypeNegotiation, ResponseType>,
-    Query(format): Query<QueryFormat>,
+    response_type: ResponseType,
 ) -> impl IntoResponse {
     ApiResponse {
         response_type,
-        human: format.human,
         data: Ok(if matches!(response_type, ResponseType::Html) {
             Either::Left(catalogue.read().await.weeks())
         } else {
@@ -132,50 +131,42 @@ async fn upload_handler(
 
     ApiResponse {
         response_type: ResponseType::Json,
-        human: false,
         data: process(catalogue, request).await,
     }
 }
 
 async fn today_handler(
     State(catalogue): State<Arc<RwLock<Catalogue>>>,
-    Negotiation(_, response_type): Negotiation<ContentTypeNegotiation, ResponseType>,
-    Query(format): Query<QueryFormat>,
+    response_type: ResponseType,
 ) -> impl IntoResponse {
     ApiResponse {
         response_type,
-        human: format.human,
         data: catalogue.read().await.today().ok_or(Error::NoMealToday),
     }
 }
 
 async fn next_handler(
     State(catalogue): State<Arc<RwLock<Catalogue>>>,
-    Negotiation(_, response_type): Negotiation<ContentTypeNegotiation, ResponseType>,
-    Query(format): Query<QueryFormat>,
+    response_type: ResponseType,
 ) -> impl IntoResponse {
     ApiResponse {
         response_type,
-        human: format.human,
         data: catalogue.read().await.next().ok_or(Error::NoNextMeal),
     }
 }
 
 #[derive(Deserialize)]
 struct FindQuery {
-    #[serde(default)]
-    human: bool,
     dish: String,
 }
 
 async fn find_handler(
     State(catalogue): State<Arc<RwLock<Catalogue>>>,
-    Negotiation(_, response_type): Negotiation<ContentTypeNegotiation, ResponseType>,
+    response_type: ResponseType,
     Query(query): Query<FindQuery>,
 ) -> impl IntoResponse {
     ApiResponse {
         response_type,
-        human: query.human,
         data: catalogue
             .read()
             .await
@@ -186,9 +177,8 @@ async fn find_handler(
 
 async fn week_handler(
     State(catalogue): State<Arc<RwLock<Catalogue>>>,
-    Negotiation(_, response_type): Negotiation<ContentTypeNegotiation, ResponseType>,
+    response_type: ResponseType,
     Path(week): Path<String>,
-    Query(format): Query<QueryFormat>,
 ) -> impl IntoResponse {
     async fn process(catalogue: Arc<RwLock<Catalogue>>, week: String) -> Result<Catalogue, Error> {
         let (year, week) = week.split_once('-').ok_or(Error::InvalidWeek)?;
@@ -199,16 +189,14 @@ async fn week_handler(
     }
     ApiResponse {
         response_type,
-        human: format.human,
         data: process(catalogue, week).await,
     }
 }
 
 async fn day_handler(
     State(catalogue): State<Arc<RwLock<Catalogue>>>,
-    Negotiation(_, response_type): Negotiation<ContentTypeNegotiation, ResponseType>,
+    response_type: ResponseType,
     Path(date): Path<String>,
-    Query(format): Query<QueryFormat>,
 ) -> impl IntoResponse {
     async fn process(catalogue: Arc<RwLock<Catalogue>>, date: String) -> Result<Day, Error> {
         let date = parse_date(&date).ok_or(Error::InvalidDay)?;
@@ -216,7 +204,6 @@ async fn day_handler(
     }
     ApiResponse {
         response_type,
-        human: format.human,
         data: process(catalogue, date).await,
     }
 }

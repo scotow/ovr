@@ -1,17 +1,15 @@
-use axum::{
-    http::StatusCode,
-    response::{Html, IntoResponse, Response},
-    Json,
-};
+use std::sync::Arc;
+use axum::{http::StatusCode, response::{Html, IntoResponse, Response}, Json, async_trait};
+use axum::extract::{FromRef, FromRequestParts, Query};
+use axum::http::request::Parts;
 use either::Either;
-use http_negotiator::AsNegotiationStr;
+use http_negotiator::{AsNegotiationStr, ContentTypeNegotiation, Negotiation, Negotiator};
 use serde::{Deserialize, Serialize};
 
 use crate::error::Error;
 
 pub struct ApiResponse<T> {
     pub response_type: ResponseType,
-    pub human: bool,
     pub data: Result<T, Error>,
 }
 
@@ -40,9 +38,9 @@ impl<T: Serialize + TextRepresentable> IntoResponse for ApiResponse<T> {
                     })
                     .into_response()
                 }
-                ResponseType::Text => match self.data {
-                    Ok(data) => data.as_plain_text(self.human),
-                    Err(err) => err.as_plain_text(self.human),
+                ResponseType::Text(human) => match self.data {
+                    Ok(data) => data.as_plain_text(human),
+                    Err(err) => err.as_plain_text(human),
                 }
                 .into_response(),
                 ResponseType::Html => Html(include_str!("wrapper.html").replace(
@@ -60,26 +58,52 @@ impl<T: Serialize + TextRepresentable> IntoResponse for ApiResponse<T> {
 }
 
 #[derive(Copy, Clone, Debug)]
-pub enum ResponseType {
+pub enum ResponseTypeRaw {
     Json,
     Text,
     Html,
 }
 
-impl AsNegotiationStr for ResponseType {
+impl AsNegotiationStr for ResponseTypeRaw {
     fn as_str(&self) -> &str {
         match self {
-            ResponseType::Json => "application/json",
-            ResponseType::Text => "text/plain",
-            ResponseType::Html => "text/html",
+            ResponseTypeRaw::Json => "application/json",
+            ResponseTypeRaw::Text => "text/plain",
+            ResponseTypeRaw::Html => "text/html",
         }
     }
 }
 
-#[derive(Deserialize, Debug)]
-pub struct QueryFormat {
-    #[serde(default)]
-    pub human: bool,
+#[derive(Copy, Clone, Debug)]
+pub enum ResponseType {
+    Json,
+    Text(bool),
+    Html,
+}
+
+#[async_trait]
+impl<S> FromRequestParts<S> for ResponseType
+where S: Send + Sync, Arc<Negotiator<ContentTypeNegotiation, ResponseTypeRaw>>: FromRef<S>
+{
+    type Rejection = Error;
+
+    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
+        let Negotiation(_, raw) = Negotiation::<ContentTypeNegotiation, ResponseTypeRaw>::from_request_parts(parts, state).await.map_err(|_| Error::ContentNegotiation)?;
+        Ok(match raw {
+            ResponseTypeRaw::Json => ResponseType::Json,
+            ResponseTypeRaw::Text => {
+                #[derive(Deserialize)]
+                pub struct QueryFormat {
+                    #[serde(default)]
+                    pub human: bool,
+                }
+
+                let Query(format) = Query::<QueryFormat>::from_request_parts(parts, state).await.map_err(|_| Error::ContentNegotiation)?;
+                ResponseType::Text(format.human)
+            }
+            ResponseTypeRaw::Html => ResponseType::Html,
+        })
+    }
 }
 
 pub trait TextRepresentable {
