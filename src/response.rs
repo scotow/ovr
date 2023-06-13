@@ -1,7 +1,12 @@
 use std::sync::Arc;
-use axum::{http::StatusCode, response::{Html, IntoResponse, Response}, Json, async_trait};
-use axum::extract::{FromRef, FromRequestParts, Query};
-use axum::http::request::Parts;
+
+use axum::{
+    async_trait,
+    extract::{FromRef, FromRequestParts, Query},
+    http::{request::Parts, StatusCode},
+    response::{Html, IntoResponse, Response},
+    Json,
+};
 use either::Either;
 use http_negotiator::{AsNegotiationStr, ContentTypeNegotiation, Negotiation, Negotiator};
 use serde::{Deserialize, Serialize};
@@ -83,12 +88,22 @@ pub enum ResponseType {
 
 #[async_trait]
 impl<S> FromRequestParts<S> for ResponseType
-where S: Send + Sync, Arc<Negotiator<ContentTypeNegotiation, ResponseTypeRaw>>: FromRef<S>
+where
+    S: Send + Sync,
+    Arc<Negotiator<ContentTypeNegotiation, ResponseTypeRaw>>: FromRef<S>,
 {
-    type Rejection = Error;
+    type Rejection = ApiResponse<()>;
 
     async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
-        let Negotiation(_, raw) = Negotiation::<ContentTypeNegotiation, ResponseTypeRaw>::from_request_parts(parts, state).await.map_err(|_| Error::ContentNegotiation)?;
+        let Negotiation(_, raw) =
+            Negotiation::<ContentTypeNegotiation, ResponseTypeRaw>::from_request_parts(
+                parts, state,
+            )
+            .await
+            .map_err(|_| ApiResponse {
+                response_type: ResponseType::Json,
+                data: Err(Error::ContentNegotiation),
+            })?;
         Ok(match raw {
             ResponseTypeRaw::Json => ResponseType::Json,
             ResponseTypeRaw::Text => {
@@ -98,7 +113,12 @@ where S: Send + Sync, Arc<Negotiator<ContentTypeNegotiation, ResponseTypeRaw>>: 
                     pub human: bool,
                 }
 
-                let Query(format) = Query::<QueryFormat>::from_request_parts(parts, state).await.map_err(|_| Error::ContentNegotiation)?;
+                let Query(format) = Query::<QueryFormat>::from_request_parts(parts, state)
+                    .await
+                    .map_err(|_| ApiResponse {
+                        response_type: ResponseType::Text(false),
+                        data: Err(Error::InvalidFormatParameter),
+                    })?;
                 ResponseType::Text(format.human)
             }
             ResponseTypeRaw::Html => ResponseType::Html,
@@ -115,6 +135,8 @@ pub trait TextRepresentable {
         String::new()
     }
 }
+
+impl TextRepresentable for () {}
 
 impl<L: TextRepresentable, R: TextRepresentable> TextRepresentable for Either<L, R> {
     fn as_plain_text(&self, human: bool) -> String {

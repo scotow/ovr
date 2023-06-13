@@ -21,10 +21,9 @@ use crate::{
     catalogue::{Catalogue, CatalogueUpdate},
     day::Day,
     error::Error,
-    response::{ApiResponse, ResponseTypeRaw},
+    response::{ApiResponse, ResponseType, ResponseTypeRaw},
     utils::parse_date,
 };
-use crate::response::ResponseType;
 
 mod catalogue;
 mod day;
