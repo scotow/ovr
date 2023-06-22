@@ -46,7 +46,7 @@ pub fn parse_pdf(pdf_data: &[u8]) -> Result<Vec<Day>, Error> {
     for div in divs {
         match words.last_mut() {
             Some(last) => {
-                if last.top == div.top && last.end.abs_diff(div.left) < 30 {
+                if last.top == div.top && last.end.abs_diff(div.left) < 12 {
                     *last += div;
                 } else {
                     last.trim();
