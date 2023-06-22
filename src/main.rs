@@ -169,7 +169,7 @@ async fn find_handler(
         data: catalogue
             .read()
             .await
-            .find_dish_next(&query.dish)
+            .find_dish_next(query.dish.split(',').map(|d| d.to_owned()).collect())
             .ok_or(Error::NoNextMeal),
     }
 }

@@ -60,8 +60,8 @@ impl Catalogue {
             .cloned()
     }
 
-    pub fn find_dish_next(&self, dish: &str) -> Option<Day> {
-        let dish = dish.to_lowercase();
+    pub fn find_dish_next<'a>(&self, mut search: Vec<String>) -> Option<Day> {
+        search.iter_mut().for_each(|d| *d = d.to_lowercase());
         let mut now = now_local();
         if now.time().hour() >= 14 {
             now += Duration::days(1);
@@ -70,10 +70,11 @@ impl Catalogue {
             .iter()
             .find(|day| {
                 day.date() >= now.date()
-                    && day
-                        .dishes_ref()
-                        .into_iter()
-                        .any(|d| d.to_lowercase().contains(&dish))
+                    && search.iter().all(|search_dish| {
+                        day.dishes_ref()
+                            .into_iter()
+                            .any(|day_dish| day_dish.to_lowercase().contains(search_dish))
+                    })
             })
             .cloned()
     }
