@@ -1,13 +1,21 @@
-use std::{mem, ops::AddAssign};
+use std::{
+    mem,
+    ops::{AddAssign, Range},
+};
 
-use itertools::{chain, Itertools};
+use itertools::Itertools;
 use lopdf::Document;
 use pdf_extract::HTMLOutput;
 use regex::Regex;
 
 use crate::{day::Day, error::Error};
 
-const MIN_WORDS_PER_LINE: usize = 3;
+const MAIN_CONTENT_AREA: Range<u32> = 120..525;
+const CATEGORIES_AREAS: &[Range<u32>] =
+    &[(145..160), (205..220), (305..320), (385..400), (425..440)];
+const EXPECTED_CHAR_WIDTH: u32 = 4;
+const COLUMN_ALLOWED_DRIFT: u32 = 30;
+const MULTILINE_DISH_MAX_DISTANCE: u32 = 15;
 
 pub fn parse_pdf(pdf_data: &[u8]) -> Result<Vec<Day>, Error> {
     let document = Document::load_mem(pdf_data).map_err(|_| Error::InvalidPdf)?;
@@ -34,7 +42,9 @@ pub fn parse_pdf(pdf_data: &[u8]) -> Result<Vec<Day>, Error> {
                 left: left_regex.captures(style)?[1].parse().ok()?,
                 text: capture.get(2).unwrap().as_str(),
             };
-            if !(100..530).contains(&div.top) {
+            if !MAIN_CONTENT_AREA.contains(&div.top)
+                || CATEGORIES_AREAS.into_iter().any(|r| r.contains(&div.top))
+            {
                 return None;
             }
             Some(div)
@@ -60,40 +70,41 @@ pub fn parse_pdf(pdf_data: &[u8]) -> Result<Vec<Day>, Error> {
         last.trim();
     }
 
-    let lines_to_clear = chain!(
-        // Not dishes lines.
-        words
-            .iter()
-            .map(|w| w.top)
-            .counts()
-            .into_iter()
-            .filter_map(|(t, n)| (n < MIN_WORDS_PER_LINE).then_some(t)),
-        // Repeating lines.
-        words
-            .iter()
-            .map(|w| (w.top, w.text.to_lowercase()))
-            .into_group_map()
-            .into_iter()
-            .filter_map(|(t, dishes)| {
-                dishes
-                    .iter()
-                    .counts()
-                    .values()
-                    .any(|&n| n >= dishes.len().saturating_sub(1)) // Margin error of 1 column.
-                    .then_some(t)
-            })
-    )
-    .collect::<Vec<_>>();
+    // Repeating lines.
+    let lines_to_clear = words
+        .iter()
+        .map(|w| (w.top, w.text.to_lowercase()))
+        .into_group_map()
+        .into_iter()
+        .filter_map(|(t, dishes)| {
+            dishes
+                .iter()
+                .counts()
+                .values()
+                .any(|&n| n >= dishes.len().saturating_sub(1).max(2)) // Margin error of 1 column.
+                .then_some(t)
+        })
+        .collect::<Vec<_>>();
     words.retain(|w| !lines_to_clear.contains(&w.top));
 
     // Build columns.
     let mut columns = Vec::<Vec<DishBuilder>>::with_capacity(5);
     for word in words {
-        match columns
-            .iter_mut()
-            .find(|ow| ow.iter().any(|ow| ow.center().abs_diff(word.center()) < 30))
-        {
-            Some(column) => column.push(word),
+        match columns.iter_mut().find(|ow| {
+            ow.iter()
+                .any(|ow| ow.center().abs_diff(word.center()) < COLUMN_ALLOWED_DRIFT)
+        }) {
+            Some(column) => {
+                // Multiline dishes.
+                if word.top - column.last().unwrap().top <= MULTILINE_DISH_MAX_DISTANCE
+                    && word.text.chars().next().is_some_and(|c| c.is_lowercase())
+                {
+                    column.last_mut().unwrap().text += " ";
+                    column.last_mut().unwrap().text += &word.text;
+                } else {
+                    column.push(word);
+                }
+            }
             None => columns.push(vec![word]),
         }
     }
@@ -148,7 +159,7 @@ impl<'a> From<Div<'a>> for DishBuilder {
         DishBuilder {
             top: value.top,
             start: value.left,
-            end: value.left + text.chars().count() as u32 * 4,
+            end: value.left + text.chars().count() as u32 * EXPECTED_CHAR_WIDTH,
             text,
         }
     }
@@ -162,7 +173,7 @@ impl<'a> AddAssign<Div<'a>> for DishBuilder {
         if self.text.ends_with(' ') {
             rhs.text = rhs.text.trim_start();
         }
-        self.end = rhs.left + rhs.text.chars().count() as u32 * 4;
+        self.end = rhs.left + rhs.text.chars().count() as u32 * EXPECTED_CHAR_WIDTH;
         self.text += rhs.text;
     }
 }
