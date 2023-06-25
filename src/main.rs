@@ -1,4 +1,6 @@
 use std::{
+    env::args,
+    fs,
     net::{IpAddr, Ipv4Addr, SocketAddr},
     sync::Arc,
 };
@@ -21,7 +23,7 @@ use crate::{
     catalogue::{Catalogue, CatalogueUpdate},
     day::Day,
     error::Error,
-    response::{ApiResponse, ResponseType, ResponseTypeRaw},
+    response::{ApiResponse, ResponseType, ResponseTypeRaw, TextRepresentable},
     utils::parse_date,
 };
 
@@ -39,7 +41,18 @@ struct AppState {
 }
 
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<(), String> {
+    let mut catalogue = Catalogue::new();
+    let mut updates = CatalogueUpdate::default();
+    for doc in args().skip(1) {
+        let week = week::parse_pdf(&fs::read(&doc).map_err(|err| err.to_string())?)
+            .map_err(|err| err.to_string())?;
+        updates += catalogue.insert(week);
+    }
+    if !updates.is_empty() {
+        println!("{}", updates.as_plain_text(false));
+    }
+
     Server::bind(&SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 8080))
         .http1_title_case_headers(true)
         .serve(
@@ -53,7 +66,7 @@ async fn main() {
                 .route("/days/:day", get(day_handler))
                 .route("/calendar.ics", get(ics_handler))
                 .with_state(AppState {
-                    catalogue: Arc::new(RwLock::new(Catalogue::new())),
+                    catalogue: Arc::new(RwLock::new(catalogue)),
                     negotiator: Arc::new(
                         Negotiator::new([
                             ResponseTypeRaw::Json,
@@ -74,6 +87,8 @@ async fn main() {
         )
         .await
         .unwrap_err();
+
+    Ok(())
 }
 
 async fn index_handler(

@@ -157,6 +157,10 @@ pub struct CatalogueUpdate {
 }
 
 impl CatalogueUpdate {
+    pub fn is_empty(&self) -> bool {
+        self.inserted.is_empty() && self.replaced.is_empty()
+    }
+
     fn sort(&mut self) {
         self.inserted.sort();
         self.replaced.sort();
@@ -200,7 +204,31 @@ impl Serialize for CatalogueUpdate {
     }
 }
 
-impl TextRepresentable for CatalogueUpdate {}
+impl TextRepresentable for CatalogueUpdate {
+    fn as_plain_text(&self, _human: bool) -> String {
+        let mut text = String::new();
+        if !self.inserted.is_empty() {
+            text += "Inserted:\n";
+            text += &self
+                .inserted
+                .iter()
+                .map(|&date| format_date(date))
+                .join("\n");
+        }
+        if !self.replaced.is_empty() {
+            if !text.is_empty() {
+                text += "\n\n";
+            }
+            text += "Replaced:\n";
+            text += &self
+                .replaced
+                .iter()
+                .map(|&date| format_date(date))
+                .join("\n");
+        }
+        text
+    }
+}
 
 pub struct WeeksList {
     weeks: Vec<Date>,
