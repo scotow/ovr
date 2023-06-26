@@ -99,8 +99,7 @@ pub fn parse_pdf(pdf_data: &[u8]) -> Result<Vec<Day>, Error> {
                 if word.top - column.last().unwrap().top <= MULTILINE_DISH_MAX_DISTANCE
                     && word.text.chars().next().is_some_and(|c| c.is_lowercase())
                 {
-                    column.last_mut().unwrap().text += " ";
-                    column.last_mut().unwrap().text += &word.text;
+                    *column.last_mut().unwrap() += word;
                 } else {
                     column.push(word);
                 }
@@ -151,6 +150,17 @@ impl DishBuilder {
     fn trim(&mut self) {
         self.text = self.text.trim().to_owned();
     }
+
+    fn absorb_text(&mut self, mut text: &str) {
+        if self.text.ends_with(' ') {
+            text = text.trim_start();
+        } else {
+            while text.ends_with("  ") {
+                text = text.trim_end_matches(' ');
+            }
+        }
+        self.text += text;
+    }
 }
 
 impl<'a> From<Div<'a>> for DishBuilder {
@@ -166,14 +176,20 @@ impl<'a> From<Div<'a>> for DishBuilder {
 }
 
 impl<'a> AddAssign<Div<'a>> for DishBuilder {
-    fn add_assign(&mut self, mut rhs: Div<'a>) {
-        while rhs.text.ends_with("  ") {
-            rhs.text = rhs.text.trim_end_matches(' ');
-        }
-        if self.text.ends_with(' ') {
-            rhs.text = rhs.text.trim_start();
-        }
+    fn add_assign(&mut self, rhs: Div<'a>) {
+        self.absorb_text(rhs.text);
         self.end = rhs.left + rhs.text.chars().count() as u32 * EXPECTED_CHAR_WIDTH;
-        self.text += rhs.text;
+    }
+}
+
+// For multiline only.
+impl AddAssign<Self> for DishBuilder {
+    fn add_assign(&mut self, rhs: Self) {
+        if !self.text.ends_with(' ') && !rhs.text.starts_with(' ') {
+            self.text.push(' ');
+        }
+        self.absorb_text(&rhs.text);
+        self.start = self.start.min(rhs.start);
+        self.end = self.end.max(rhs.end);
     }
 }
