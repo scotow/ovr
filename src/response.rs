@@ -10,6 +10,7 @@ use axum::{
 use either::Either;
 use http_negotiator::{AsNegotiationStr, ContentTypeNegotiation, Negotiation, Negotiator};
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 
 use crate::error::Error;
 
@@ -26,7 +27,7 @@ impl<T: Serialize + TextRepresentable> IntoResponse for ApiResponse<T> {
                 Err(err) => err.status_code(),
             },
             match self.response_type {
-                ResponseType::Json => {
+                ResponseType::Json(human) => {
                     #[derive(Serialize)]
                     struct JsonResponse<T> {
                         success: bool,
@@ -35,9 +36,18 @@ impl<T: Serialize + TextRepresentable> IntoResponse for ApiResponse<T> {
                     }
                     Json(JsonResponse {
                         success: self.data.is_ok(),
-                        data: match self.data {
-                            Ok(data) => serde_json::to_value(data),
-                            Err(err) => serde_json::to_value(err),
+                        data: if human {
+                            Ok(json!({
+                                "message": match self.data {
+                                    Ok(data) => data.as_plain_text(human),
+                                    Err(err) => err.as_plain_text(human),
+                                }
+                            }))
+                        } else {
+                            match self.data {
+                                Ok(data) => serde_json::to_value(data),
+                                Err(err) => serde_json::to_value(err),
+                            }
                         }
                         .expect("serialization failed"),
                     })
@@ -81,7 +91,7 @@ impl AsNegotiationStr for ResponseTypeRaw {
 
 #[derive(Copy, Clone, Debug)]
 pub enum ResponseType {
-    Json,
+    Json(bool),
     Text(bool),
     Html,
 }
@@ -101,26 +111,26 @@ where
             )
             .await
             .map_err(|_| ApiResponse {
-                response_type: ResponseType::Json,
+                response_type: ResponseType::Json(false),
                 data: Err(Error::ContentNegotiation),
             })?;
-        Ok(match raw {
-            ResponseTypeRaw::Json => ResponseType::Json,
-            ResponseTypeRaw::Text => {
-                #[derive(Deserialize)]
-                pub struct QueryFormat {
-                    #[serde(default)]
-                    pub human: bool,
-                }
 
-                let Query(format) = Query::<QueryFormat>::from_request_parts(parts, state)
-                    .await
-                    .map_err(|_| ApiResponse {
-                        response_type: ResponseType::Text(false),
-                        data: Err(Error::InvalidFormatParameter),
-                    })?;
-                ResponseType::Text(format.human)
-            }
+        #[derive(Deserialize)]
+        pub struct QueryFormat {
+            #[serde(default)]
+            pub human: bool,
+        }
+
+        let Query(format) = Query::<QueryFormat>::from_request_parts(parts, state)
+            .await
+            .map_err(|_| ApiResponse {
+                response_type: ResponseType::Json(false),
+                data: Err(Error::InvalidFormatParameter),
+            })?;
+
+        Ok(match raw {
+            ResponseTypeRaw::Json => ResponseType::Json(format.human),
+            ResponseTypeRaw::Text => ResponseType::Text(format.human),
             ResponseTypeRaw::Html => ResponseType::Html,
         })
     }

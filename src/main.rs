@@ -144,7 +144,7 @@ async fn upload_handler(
     }
 
     ApiResponse {
-        response_type: ResponseType::Json,
+        response_type: ResponseType::Json(false),
         data: process(catalogue, request).await,
     }
 }
