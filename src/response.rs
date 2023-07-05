@@ -58,13 +58,19 @@ impl<T: Serialize + TextRepresentable> IntoResponse for ApiResponse<T> {
                     Err(err) => err.as_plain_text(human),
                 }
                 .into_response(),
-                ResponseType::Html => Html(include_str!("wrapper.html").replace(
-                    "$BODY",
-                    &match self.data {
-                        Ok(data) => data.as_html(),
-                        Err(err) => err.as_html(),
-                    },
-                ))
+                ResponseType::Html(scale, center) => Html(
+                    include_str!("wrapper.html")
+                        .replacen("$SCALE", &scale.to_string(), 1)
+                        .replacen("$CENTER", if center { "center" } else { "flex-start" }, 1)
+                        .replacen(
+                            "$BODY",
+                            &match self.data {
+                                Ok(data) => data.as_html(),
+                                Err(err) => err.as_html(),
+                            },
+                            1,
+                        ),
+                )
                 .into_response(),
             },
         )
@@ -93,7 +99,7 @@ impl AsNegotiationStr for ResponseTypeRaw {
 pub enum ResponseType {
     Json(bool),
     Text(bool),
-    Html,
+    Html(f32, bool),
 }
 
 #[async_trait]
@@ -116,9 +122,19 @@ where
             })?;
 
         #[derive(Deserialize)]
-        pub struct QueryFormat {
+        struct QueryFormat {
             #[serde(default)]
-            pub human: bool,
+            human: bool,
+            #[serde(default = "QueryFormat::default_scale")]
+            scale: f32,
+            #[serde(default)]
+            center: bool,
+        }
+
+        impl QueryFormat {
+            const fn default_scale() -> f32 {
+                1.0
+            }
         }
 
         let Query(format) = Query::<QueryFormat>::from_request_parts(parts, state)
@@ -131,7 +147,7 @@ where
         Ok(match raw {
             ResponseTypeRaw::Json => ResponseType::Json(format.human),
             ResponseTypeRaw::Text => ResponseType::Text(format.human),
-            ResponseTypeRaw::Html => ResponseType::Html,
+            ResponseTypeRaw::Html => ResponseType::Html(format.scale, format.center),
         })
     }
 }

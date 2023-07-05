@@ -5,11 +5,17 @@
     <title>Menu</title>
     <link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600&display=block" rel="stylesheet">
     <style>
+        :root {
+            --scale: $SCALE;
+            --center: $CENTER;
+        }
+
         body {
             display: flex;
             flex-direction: column;
             align-items: center;
-            margin: 28px 20px 20px 20px;
+            justify-content: var(--center);
+            margin: calc(28px * var(--scale)) calc(20px * var(--scale)) calc(20px * var(--scale)) calc(20px * var(--scale));
             font-size: 0;
             font-family: 'Source Sans 3', sans-serif;
             text-align: center;
@@ -28,14 +34,14 @@
         }
 
         .error {
-            font-size: 38px;
+            font-size: calc(38px * var(--scale));
             font-weight: 600;
         }
 
         .week {
-            font-size: 30px;
+            font-size: calc(30px * var(--scale));
             font-weight: 600;
-            line-height: 38px;
+            line-height: calc(38px * var(--scale));
             color: white;
         }
 
@@ -47,14 +53,14 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            margin-bottom: 40px;
+            margin-bottom: calc(40px * var(--scale));
         }
 
         .day > a {
-            margin-bottom: 10px;
-            font-size: 30px;
+            margin-bottom: calc(10px * var(--scale));
+            font-size: calc(30px * var(--scale));
             font-weight: 600;
-            line-height: 38px;
+            line-height: calc(38px * var(--scale));
             color: white;
         }
 
@@ -63,8 +69,8 @@
         }
 
         .dish {
-            font-size: 24px;
-            line-height: 32px;
+            font-size: calc(24px * var(--scale));
+            line-height: calc(32px * var(--scale));
             color: lightgray;
         }
     </style>

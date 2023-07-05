@@ -97,7 +97,7 @@ async fn index_handler(
 ) -> impl IntoResponse {
     ApiResponse {
         response_type,
-        data: Ok(if matches!(response_type, ResponseType::Html) {
+        data: Ok(if matches!(response_type, ResponseType::Html(_, _)) {
             Either::Left(catalogue.read().await.weeks())
         } else {
             Either::Right(catalogue.read().await.clone())
