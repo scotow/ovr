@@ -4,15 +4,29 @@ use std::{
 };
 
 use itertools::Itertools;
-use lopdf::Document;
+use lopdf::{Document, Object};
 use pdf_extract::HTMLOutput;
 use regex::Regex;
 
 use crate::{day::Day, error::Error};
 
 const MAIN_CONTENT_AREA: Range<u32> = 120..525;
-const CATEGORIES_AREAS: &[Range<u32>] =
-    &[(145..160), (205..220), (305..320), (385..400), (425..440)];
+const CATEGORIES_AREAS: &[(DocumentDimensions, &[Range<u32>])] = &[
+    (
+        DocumentDimensions {
+            width: 792,
+            height: 612,
+        },
+        &[(136..166), (196..226), (296..326), (376..406), (416..446)],
+    ),
+    (
+        DocumentDimensions {
+            width: 841,
+            height: 595,
+        },
+        &[(139..169), (197..227), (293..323), (370..400), (408..438)],
+    ),
+];
 const EXPECTED_CHAR_WIDTH: u32 = 4;
 const COLUMN_ALLOWED_DRIFT: u32 = 30;
 const MULTILINE_DISH_MAX_DISTANCE: u32 = 15;
@@ -30,6 +44,7 @@ pub fn parse_pdf(pdf_data: &[u8]) -> Result<Vec<Day>, Error> {
     let top_regex = Regex::new(r#"top:\s?(\d+)(?:\.\d+)?px"#).map_err(|_| Error::Internal)?;
     let left_regex = Regex::new(r#"left:\s?(\d+)(?:\.\d+)?px"#).map_err(|_| Error::Internal)?;
 
+    let categories = DocumentDimensions::new(&document)?.categories_area();
     let mut divs = div_regex
         .captures_iter(&html)
         .filter_map(|capture| {
@@ -43,7 +58,7 @@ pub fn parse_pdf(pdf_data: &[u8]) -> Result<Vec<Day>, Error> {
                 text: capture.get(2).unwrap().as_str(),
             };
             if !MAIN_CONTENT_AREA.contains(&div.top)
-                || CATEGORIES_AREAS.into_iter().any(|r| r.contains(&div.top))
+                || categories.into_iter().any(|r| r.contains(&div.top))
             {
                 return None;
             }
@@ -125,6 +140,40 @@ pub fn parse_pdf(pdf_data: &[u8]) -> Result<Vec<Day>, Error> {
         .into_iter()
         .filter_map(|column| Day::new(column.into_iter().map(|tg| tg.text).collect()).transpose())
         .collect()
+}
+
+#[derive(Eq, PartialEq, Copy, Clone, Debug)]
+struct DocumentDimensions {
+    width: u32,
+    height: u32,
+}
+
+impl DocumentDimensions {
+    fn new(document: &Document) -> Result<Self, Error> {
+        let mut matrix = document
+            .get_object(document.page_iter().next().ok_or(Error::InvalidPdf)?)?
+            .as_dict()?
+            .get("MediaBox".as_bytes())?
+            .as_array()?
+            .iter()
+            .map(|obj| match &obj {
+                Object::Integer(n) => Ok(*n as u32),
+                Object::Real(r) => Ok(*r as u32),
+                _ => Err(Error::InvalidPdf),
+            })
+            .skip(2);
+        Ok(Self {
+            width: matrix.next().ok_or(Error::InvalidPdf)??,
+            height: matrix.next().ok_or(Error::InvalidPdf)??,
+        })
+    }
+
+    fn categories_area(&self) -> &'static [Range<u32>] {
+        CATEGORIES_AREAS
+            .into_iter()
+            .find_map(|(d, rs)| (d == self).then_some(*rs))
+            .unwrap_or(CATEGORIES_AREAS[0].1)
+    }
 }
 
 #[derive(Debug)]

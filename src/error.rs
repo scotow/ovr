@@ -51,6 +51,12 @@ impl Error {
     }
 }
 
+impl From<lopdf::Error> for Error {
+    fn from(_value: lopdf::Error) -> Self {
+        Self::InvalidPdf
+    }
+}
+
 impl Serialize for Error {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
