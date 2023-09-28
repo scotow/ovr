@@ -45,8 +45,12 @@ async fn main() -> Result<(), String> {
     let mut catalogue = Catalogue::new();
     let mut updates = CatalogueUpdate::default();
     for doc in args().skip(1) {
-        let week = week::parse_pdf(&fs::read(&doc).map_err(|err| err.to_string())?)
-            .map_err(|err| err.to_string())?;
+        let data = fs::read(&doc).map_err(|err| err.to_string())?;
+        let week = if doc.ends_with(".json") {
+            week::parse_json(&data)
+        } else {
+            week::parse_pdf(&data)
+        }.map_err(|err| err.to_string())?;
         updates += catalogue.insert(week);
     }
     if !updates.is_empty() {
@@ -129,8 +133,18 @@ async fn upload_handler(
                 .await
                 .map_err(|_| Error::InvalidBody)?
             {
-                let data = field.bytes().await.map_err(|_| Error::InvalidBody)?;
-                let days = week::parse_pdf(&data)?;
+                let days = match field.headers().get(header::CONTENT_TYPE)
+                    .and_then(|h| h.to_str().ok())
+                {
+                    Some("application/json" | "application/octet-stream") => {
+                        let data = field.bytes().await.map_err(|_| Error::InvalidBody)?;
+                        week::parse_json(&data)?
+                    }
+                    Some("application/pdf") | None | _ => {
+                        let data = field.bytes().await.map_err(|_| Error::InvalidBody)?;
+                        week::parse_pdf(&data)?
+                    }
+                };
                 updates += catalogue_lock.insert(days);
             }
         } else {

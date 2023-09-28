@@ -31,6 +31,13 @@ const EXPECTED_CHAR_WIDTH: u32 = 4;
 const COLUMN_ALLOWED_DRIFT: u32 = 30;
 const MULTILINE_DISH_MAX_DISTANCE: u32 = 15;
 
+pub fn parse_json(json_data: &[u8]) -> Result<Vec<Day>, Error> {
+    serde_json::from_slice::<Vec<Vec<String>>>(json_data).map_err(|_| Error::InvalidJson)?
+        .into_iter()
+        .filter_map(|f| Day::new(f).transpose())
+        .collect::<Result<Vec<_>, _>>()
+}
+
 pub fn parse_pdf(pdf_data: &[u8]) -> Result<Vec<Day>, Error> {
     let document = Document::load_mem(pdf_data).map_err(|_| Error::InvalidPdf)?;
     let mut out_buffer = Vec::new();

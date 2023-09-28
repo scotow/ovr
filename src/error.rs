@@ -15,6 +15,8 @@ pub enum Error {
     InvalidFormatParameter,
     #[error("invalid body")]
     InvalidBody,
+    #[error("invalid json")]
+    InvalidJson,
     #[error("invalid pdf")]
     InvalidPdf,
     #[error("no meal found for today")]
@@ -39,6 +41,7 @@ impl Error {
             Error::ContentNegotiation => StatusCode::BAD_REQUEST,
             Error::InvalidFormatParameter => StatusCode::BAD_REQUEST,
             Error::InvalidBody => StatusCode::BAD_REQUEST,
+            Error::InvalidJson => StatusCode::BAD_REQUEST,
             Error::InvalidPdf => StatusCode::BAD_REQUEST,
             Error::NoMealToday => StatusCode::NOT_FOUND,
             Error::NoNextMeal => StatusCode::NOT_FOUND,
