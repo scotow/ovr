@@ -21,22 +21,33 @@ impl Day {
             1 => return Ok(None),
             _ => (),
         };
-        let (weekday, day, month) = fields[0]
-            .splitn(3, ' ')
-            .collect_tuple()
-            .ok_or(Error::InvalidPdf)?;
-        let weekday = parse_fr_weekday_str(weekday).ok_or(Error::InvalidPdf)?;
-        let day = day.parse().map_err(|_| Error::InvalidPdf)?;
-        let month = parse_fr_month_str(month).ok_or(Error::InvalidPdf)?;
 
-        let now = OffsetDateTime::now_utc();
-        let date = (now.year() - 1..=now.year() + 1)
-            .filter_map(|year| {
-                let date = Date::from_calendar_date(year, month, day).ok()?;
-                (date.weekday() == weekday).then_some(date)
-            })
-            .min_by_key(|date| (*date - now.date()).abs())
-            .ok_or(Error::InvalidPdf)?;
+        let date = if fields[0].chars().any(|c| c.is_alphabetic()) {
+            let (weekday, day, month) = fields[0]
+                .splitn(3, ' ')
+                .collect_tuple()
+                .ok_or(Error::InvalidPdf)?;
+            let weekday = parse_fr_weekday_str(weekday).ok_or(Error::InvalidPdf)?;
+            let day = day.parse().map_err(|_| Error::InvalidPdf)?;
+            let month = parse_fr_month_str(month).ok_or(Error::InvalidPdf)?;
+
+            let now = OffsetDateTime::now_utc();
+            (now.year() - 1..=now.year() + 1)
+                .filter_map(|year| {
+                    let date = Date::from_calendar_date(year, month, day).ok()?;
+                    (date.weekday() == weekday).then_some(date)
+                })
+                .min_by_key(|date| (*date - now.date()).abs())
+                .ok_or(Error::InvalidPdf)?
+        } else {
+            let (year, month, day) = fields[0]
+                .splitn(3, '-')
+                .map(|n| n.parse::<i16>().ok())
+                .flatten()
+                .collect_tuple()
+                .ok_or(Error::InvalidPdf)?;
+            Date::from_calendar_date(year as i32, Month::try_from(month as u8).map_err(|_| Error::InvalidPdf)?, day as u8).map_err(|_| Error::InvalidPdf)?
+        };
 
         Ok(Some(Self {
             date,
