@@ -1,6 +1,6 @@
 use std::{env, ops::Add, time::SystemTime};
 
-use itertools::chain;
+use itertools::{chain, Itertools};
 use reqwest::{
     multipart::{Form, Part},
     StatusCode,
@@ -33,6 +33,8 @@ impl Day {
                 self.cheeses,
                 self.desserts
             )
+            .filter(|d| !d.eq_ignore_ascii_case("Poisson selon arrivage"))
+            .unique()
             .map(Value::String)
             .collect(),
         )
